@@ -1,0 +1,509 @@
+# フロントエンド・バックエンド接続 計画表
+# プロジェクトの各フェーズにおけるタスク、担当、期間、依存関係、成果物、関連ファイルを定義します。
+
+project_name: SaaS Frontend-Backend Integration Plan
+version: 1.1 # バージョン更新
+creation_date: 2025-05-12
+last_updated_date: 2024-07-24 # 更新日追加
+overall_start_date: 2025-05-13
+overall_estimated_end_date: 2025-08-30 # 仮の全体終了予定日
+
+phases:
+  - phase_id: P01
+    phase_name: "1. API設計及び定義"
+    description: "フロントエンドとバックエンド間で通信するためのAPI仕様を設計・定義します。"
+    start_date: 2025-05-13
+    end_date: 2025-05-31
+    responsible_team: Backend Team, Frontend Team
+    tasks:
+      - task_id: P01-T01
+        task_name: "ユーザー認証API定義"
+        description: "ログイン、新規登録、ログアウト、プロファイル取得/更新APIの仕様定義。"
+        responsible_team: Backend Team Lead, Frontend Team Lead
+        start_date: 2025-05-13
+        end_date: 2025-05-20
+        dependencies: []
+        deliverables:
+          - "ユーザー認証API仕様書 (Swagger/OpenAPI)"
+          - "認証関連DTO (Data Transfer Object) 定義"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/user/user.controller.ts"
+          - "exhibition-meeting-system/backend/modules/user/user.service.ts"
+          - "exhibition-meeting-system/backend/modules/user/dto/user.dto.ts"
+          - "exhibition-meeting-system/backend/modules/user/guards/auth.guard.ts"
+          - "exhibition-meeting-system/frontend/app/login/page.tsx"
+          - "exhibition-meeting-system/frontend/components/client-layout.tsx" # 認証状態による表示制御
+          - "exhibition-meeting-system/frontend/components/admin-layout.tsx" # 認証状態による表示制御
+      - task_id: P01-T02
+        task_name: "クライアント管理API定義 (管理者向け)"
+        description: "クライアント一覧取得、詳細取得、新規登録、更新、削除APIの仕様定義。"
+        responsible_team: Backend Team Lead
+        start_date: 2025-05-16
+        end_date: 2025-05-23
+        dependencies: []
+        deliverables:
+          - "クライアント管理API仕様書"
+          - "クライアント関連DTO定義"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/client/client.controller.ts"
+          - "exhibition-meeting-system/backend/modules/client/client.service.ts"
+          - "exhibition-meeting-system/backend/modules/client/dto/client.dto.ts"
+          - "exhibition-meeting-system/backend/modules/client/entities/client.entity.ts"
+          - "exhibition-meeting-system/frontend/app/admin/clients/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/clients/new/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/clients/[id]/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/clients/[id]/edit/page.tsx"
+          - "exhibition-meeting-system/frontend/components/client-form.tsx"
+          - "exhibition-meeting-system/frontend/components/client-detail.tsx"
+      - task_id: P01-T03
+        task_name: "展示会管理API定義 (管理者向け)"
+        description: "展示会一覧取得、詳細取得、新規登録、更新、削除APIの仕様定義。"
+        responsible_team: Backend Team Lead
+        start_date: 2025-05-16
+        end_date: 2025-05-23
+        dependencies: []
+        deliverables:
+          - "展示会管理API仕様書"
+          - "展示会関連DTO定義"
+        relevant_files:
+          # バックエンドの展示会管理関連のコントローラ、サービス、DTO (現状のファイルリストからは直接的なものが見当たらないため、receiptモジュール等を参考に新規作成または既存改修を想定)
+          # - "exhibition-meeting-system/backend/modules/exhibition/exhibition.controller.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/exhibition/exhibition.service.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/exhibition/dto/exhibition.dto.ts" (想定)
+          - "exhibition-meeting-system/frontend/app/admin/exhibitions/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/exhibitions/[id]/page.tsx"
+          - "exhibition-meeting-system/frontend/components/exhibition-detail.tsx"
+          - "exhibition-meeting-system/frontend/contexts/company-context.tsx" # 展示会情報管理
+      - task_id: P01-T04
+        task_name: "商談管理API定義 (クライアント向け)"
+        description: "商談一覧取得、詳細取得、新規予約、更新、キャンセルAPIの仕様定義。"
+        responsible_team: Backend Team Lead
+        start_date: 2025-05-20
+        end_date: 2025-05-27
+        dependencies: []
+        deliverables:
+          - "商談管理API仕様書"
+          - "商談関連DTO定義"
+        relevant_files:
+          # バックエンドの商談管理関連のコントローラ、サービス、DTO (現状のファイルリストからは直接的なものが見当たらないため、receiptモジュール等を参考に新規作成または既存改修を想定)
+          # - "exhibition-meeting-system/backend/modules/meeting/meeting.controller.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/meeting/meeting.service.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/meeting/dto/meeting.dto.ts" (想定)
+          - "exhibition-meeting-system/frontend/app/client/meetings/page.tsx"
+          - "exhibition-meeting-system/frontend/app/client/meetings/new/page.tsx"
+      - task_id: P01-T05
+        task_name: "統計データAPI定義 (管理者向け)"
+        description: "各種統計データ取得APIの仕様定義。"
+        responsible_team: Backend Team Lead
+        start_date: 2025-05-20
+        end_date: 2025-05-27
+        dependencies: []
+        deliverables:
+          - "統計データAPI仕様書"
+          - "統計関連DTO定義"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/stats/stats.service.ts"
+          - "exhibition-meeting-system/backend/modules/stats/repositories/stats.repository.ts"
+          - "exhibition-meeting-system/backend/modules/stats/dto/stats-request.dto.ts"
+          - "exhibition-meeting-system/frontend/app/admin/analytics/page.tsx"
+          - "exhibition-meeting-system/frontend/components/lazy-chart.tsx"
+          - "exhibition-meeting-system/frontend/components/ui/chart.tsx"
+      - task_id: P01-T06
+        task_name: "AI連携API定義"
+        description: "理由書生成支援などのAI機能呼び出しAPIの仕様定義。"
+        responsible_team: Backend Team Lead, AI Team
+        start_date: 2025-05-23
+        end_date: 2025-05-30
+        dependencies: []
+        deliverables:
+          - "AI連携API仕様書"
+          - "AI関連DTO定義"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/ai/ai.service.ts"
+          - "exhibition-meeting-system/backend/modules/ai/dto/ai-request.dto.ts"
+          - "exhibition-meeting-system/backend/services/ai/vertex-ai.service.ts"
+          - "exhibition-meeting-system/backend/services/ai/prompt-templates.ts"
+          - "exhibition-meeting-system/backend/config/ai-service-config.ts"
+    overall_deliverables:
+      - "全API仕様書 (バージョン管理)"
+      - "共有DTOライブラリまたは型定義ファイル"
+
+  - phase_id: P02
+    phase_name: "2. バックエンドAPI実装"
+    description: "定義されたAPI仕様に基づき、バックエンドのロジックとデータベース連携を実装します。"
+    start_date: 2025-05-27
+    end_date: 2025-07-15
+    responsible_team: Backend Team
+    tasks:
+      - task_id: P02-T01
+        task_name: "ユーザー認証API実装"
+        responsible_team: Backend Developer A
+        start_date: 2025-05-27
+        end_date: 2025-06-10
+        dependencies: ["P01-T01"]
+        deliverables:
+          - "実装済みユーザー認証エンドポイント"
+          - "単体テストコード (Auth)"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/user/user.controller.ts"
+          - "exhibition-meeting-system/backend/modules/user/user.service.ts"
+          - "exhibition-meeting-system/backend/modules/user/repositories/user.repository.ts"
+          - "exhibition-meeting-system/backend/modules/user/user.module.ts"
+          - "exhibition-meeting-system/backend/database/migrations/initial-schema.ts" # usersテーブル
+      - task_id: P02-T02
+        task_name: "クライアント管理API実装"
+        responsible_team: Backend Developer B
+        start_date: 2025-06-03
+        end_date: 2025-06-17
+        dependencies: ["P01-T02"]
+        deliverables:
+          - "実装済みクライアント管理エンドポイント"
+          - "単体テストコード (Client)"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/client/client.controller.ts"
+          - "exhibition-meeting-system/backend/modules/client/client.service.ts"
+          - "exhibition-meeting-system/backend/modules/client/repositories/client.repository.ts"
+          - "exhibition-meeting-system/backend/modules/client/client.module.ts"
+          - "exhibition-meeting-system/backend/modules/client/entities/client.entity.ts"
+          - "exhibition-meeting-system/backend/src/database/migrations/1721788987003-CreateClientTable.ts"
+      - task_id: P02-T03
+        task_name: "展示会管理API実装"
+        responsible_team: Backend Developer A
+        start_date: 2025-06-03
+        end_date: 2025-06-17
+        dependencies: ["P01-T03"]
+        deliverables:
+          - "実装済み展示会管理エンドポイント"
+          - "単体テストコード (Exhibition)"
+        status: "完了"
+        relevant_files:
+          # - "exhibition-meeting-system/backend/modules/exhibition/exhibition.controller.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/exhibition/exhibition.service.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/exhibition/repositories/exhibition.repository.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/exhibition/exhibition.module.ts" (想定)
+          - "exhibition-meeting-system/backend/database/migrations/initial-schema.ts" # 関連テーブル
+      - task_id: P02-T04
+        task_name: "商談管理API実装"
+        responsible_team: Backend Developer B
+        start_date: 2025-06-10
+        end_date: 2025-06-24
+        dependencies: ["P01-T04"]
+        deliverables:
+          - "実装済み商談管理エンドポイント"
+          - "単体テストコード (Meeting)"
+        status: "完了"
+        relevant_files:
+          # - "exhibition-meeting-system/backend/modules/meeting/meeting.controller.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/meeting/meeting.service.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/meeting/repositories/meeting.repository.ts" (想定)
+          # - "exhibition-meeting-system/backend/modules/meeting/meeting.module.ts" (想定)
+          - "exhibition-meeting-system/backend/database/migrations/initial-schema.ts" # 関連テーブル
+      - task_id: P02-T05
+        task_name: "統計データAPI実装"
+        responsible_team: Backend Developer A
+        start_date: 2025-06-10
+        end_date: 2025-06-24
+        dependencies: ["P01-T05"]
+        deliverables:
+          - "実装済み統計データエンドポイント"
+          - "単体テストコード (Stats)"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/stats/stats.controller.ts" # (structure.yamlより想定)
+          - "exhibition-meeting-system/backend/modules/stats/stats.service.ts"
+          - "exhibition-meeting-system/backend/modules/stats/repositories/stats.repository.ts"
+          - "exhibition-meeting-system/backend/modules/stats/stats.module.ts" # (structure.yamlより想定)
+      - task_id: P02-T06
+        task_name: "AI連携API実装"
+        responsible_team: Backend Developer C, AI Team
+        start_date: 2025-06-17
+        end_date: 2025-07-01
+        dependencies: ["P01-T06"]
+        deliverables:
+          - "実装済みAI連携エンドポイント"
+          - "単体テストコード (AI)"
+        relevant_files:
+          - "exhibition-meeting-system/backend/modules/ai/ai.controller.ts" # (structure.yamlより想定)
+          - "exhibition-meeting-system/backend/modules/ai/ai.service.ts"
+          - "exhibition-meeting-system/backend/modules/ai/repositories/interaction.repository.ts" # (structure.yamlより想定)
+          - "exhibition-meeting-system/backend/modules/ai/ai.module.ts" # (structure.yamlより想定)
+          - "exhibition-meeting-system/backend/services/ai/vertex-ai.service.ts"
+      - task_id: P02-T07
+        task_name: "APIドキュメント整備 (Swagger/OpenAPI)"
+        responsible_team: Backend Team Lead
+        start_date: 2025-07-01
+        end_date: 2025-07-08
+        dependencies: ["P02-T01", "P02-T02", "P02-T03", "P02-T04", "P02-T05", "P02-T06"]
+        deliverables:
+          - "最新化されたAPIドキュメント"
+        relevant_files:
+          - "exhibition-meeting-system/backend/core/main.ts" # Swagger設定箇所
+    overall_deliverables:
+      - "全API実装完了"
+      - "バックエンド単体テスト完了"
+      - "整備済みAPIドキュメント"
+
+  - phase_id: P03
+    phase_name: "3. フロントエンドAPI連携実装"
+    description: "バックエンドAPIを利用してフロントエンドの各画面機能を実装します。"
+    start_date: 2025-06-10
+    end_date: 2025-07-31
+    responsible_team: Frontend Team
+    tasks:
+      - task_id: P03-T01
+        task_name: "ログイン・ユーザー登録画面実装"
+        responsible_team: Frontend Developer X
+        start_date: 2025-06-10
+        end_date: 2025-06-24
+        dependencies: ["P02-T01"]
+        deliverables:
+          - "ログイン機能"
+          - "新規登録機能"
+          - "プロファイル表示・編集機能"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/frontend/app/login/page.tsx"
+          - "exhibition-meeting-system/frontend/app/client/settings/page.tsx" # プロファイル関連
+          - "exhibition-meeting-system/frontend/contexts/company-context.tsx" # ユーザー情報保持の可能性
+          - "exhibition-meeting-system/frontend/hooks/use-toast.ts" # 通知用
+      - task_id: P03-T02
+        task_name: "管理者向けクライアント管理画面実装"
+        responsible_team: Frontend Developer Y
+        start_date: 2025-06-17
+        end_date: 2025-07-01
+        dependencies: ["P02-T02"]
+        deliverables:
+          - "クライアント一覧表示・検索機能"
+          - "クライアント詳細表示機能"
+          - "クライアント登録・編集フォーム"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/frontend/app/admin/clients/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/clients/new/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/clients/[id]/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/clients/[id]/edit/page.tsx"
+          - "exhibition-meeting-system/frontend/components/client-form.tsx"
+          - "exhibition-meeting-system/frontend/components/client-detail.tsx"
+          - "exhibition-meeting-system/frontend/components/optimized-data-table.tsx" # 一覧表示で使用の可能性
+      - task_id: P03-T03
+        task_name: "管理者向け展示会管理画面実装"
+        responsible_team: Frontend Developer X
+        start_date: 2025-06-17
+        end_date: 2025-07-01
+        dependencies: ["P02-T03"]
+        deliverables:
+          - "展示会一覧表示・検索機能"
+          - "展示会詳細表示機能"
+          - "展示会登録・編集フォーム"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/frontend/app/admin/exhibitions/page.tsx"
+          - "exhibition-meeting-system/frontend/app/admin/exhibitions/[id]/page.tsx"
+          # - "exhibition-meeting-system/frontend/components/exhibition-form.tsx" (想定)
+          - "exhibition-meeting-system/frontend/components/exhibition-detail.tsx"
+          - "exhibition-meeting-system/frontend/contexts/company-context.tsx"
+      - task_id: P03-T04
+        task_name: "クライアント向け商談管理画面実装"
+        responsible_team: Frontend Developer Y
+        start_date: 2025-06-24
+        end_date: 2025-07-08
+        dependencies: ["P02-T04"]
+        deliverables:
+          - "商談一覧表示・フィルタリング機能"
+          - "商談予約フォーム"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/frontend/app/client/meetings/page.tsx"
+          - "exhibition-meeting-system/frontend/app/client/meetings/new/page.tsx"
+          # - "exhibition-meeting-system/frontend/components/meeting-form.tsx" (想定)
+          # - "exhibition-meeting-system/frontend/components/meeting-list.tsx" (想定)
+      - task_id: P03-T05
+        task_name: "管理者向けデータ分析画面実装"
+        responsible_team: Frontend Developer X
+        start_date: 2025-06-24
+        end_date: 2025-07-08
+        dependencies: ["P02-T05"]
+        deliverables:
+          - "統計データ表示チャート・テーブル"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/frontend/app/admin/analytics/page.tsx"
+          - "exhibition-meeting-system/frontend/components/lazy-chart.tsx"
+          - "exhibition-meeting-system/frontend/components/ui/chart.tsx"
+      - task_id: P03-T06
+        task_name: "AI連携機能のフロントエンド組み込み"
+        responsible_team: Frontend Developer Y
+        start_date: 2025-07-01
+        end_date: 2025-07-15
+        dependencies: ["P02-T06"]
+        deliverables:
+          - "AI支援機能のUI/UX"
+        status: "完了"
+        relevant_files:
+          # AI支援機能が組み込まれる具体的なフロントエンドファイル (例: 理由書作成画面など)
+          - "exhibition-meeting-system/frontend/app/client/meetings/new/page.tsx" # 商談目的等でAI利用の可能性
+    overall_deliverables:
+      - "全フロントエンド画面実装完了"
+      - "フロントエンド単体・コンポーネントテスト完了"
+      - "P03フェーズで予定されていた全機能の実装が完了しました"
+    status: "完了"
+
+  - phase_id: P04
+    phase_name: "4. 結合テスト及びバグ修正"
+    description: "フロントエンドとバックエンドを結合し、全体の動作確認と不具合修正を行います。"
+    start_date: 2025-07-15
+    end_date: 2025-08-15
+    responsible_team: QA Team, Frontend Team, Backend Team
+    tasks:
+      - task_id: P04-T01
+        task_name: "認証フローテスト"
+        responsible_team: QA Tester 1
+        start_date: 2025-07-15
+        end_date: 2025-07-22
+        dependencies: ["P03-T01"]
+        deliverables:
+          - "認証フローテスト報告書"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/tests/integration/api-endpoints.spec.ts" # 認証関連テストケース
+          - "exhibition-meeting-system/frontend/app/login/page.tsx"
+      - task_id: P04-T02
+        task_name: "管理者機能テスト (クライアント・展示会管理)"
+        responsible_team: QA Tester 2
+        start_date: 2025-07-22
+        end_date: 2025-07-29
+        dependencies: ["P03-T02", "P03-T03"]
+        deliverables:
+          - "管理者機能テスト報告書"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/tests/integration/api-endpoints.spec.ts" # 管理者機能関連テストケース
+          - "exhibition-meeting-system/frontend/app/admin/clients/**"
+          - "exhibition-meeting-system/frontend/app/admin/exhibitions/**"
+      - task_id: P04-T03
+        task_name: "クライアント機能テスト (商談管理)"
+        responsible_team: QA Tester 1
+        start_date: 2025-07-22
+        end_date: 2025-07-29
+        dependencies: ["P03-T04"]
+        deliverables:
+          - "クライアント機能テスト報告書"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/tests/integration/api-endpoints.spec.ts" # クライアント機能関連テストケース
+          - "exhibition-meeting-system/frontend/app/client/meetings/**"
+      - task_id: P04-T04
+        task_name: "データ分析機能テスト"
+        responsible_team: QA Tester 2
+        start_date: 2025-07-29
+        end_date: 2025-08-05
+        dependencies: ["P03-T05"]
+        deliverables:
+          - "データ分析機能テスト報告書"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/tests/integration/api-endpoints.spec.ts" # 統計関連テストケース
+          - "exhibition-meeting-system/frontend/app/admin/analytics/page.tsx"
+      - task_id: P04-T05
+        task_name: "AI連携機能テスト"
+        responsible_team: QA Tester 1, AI Team
+        start_date: 2025-07-29
+        end_date: 2025-08-05
+        dependencies: ["P03-T06"]
+        deliverables:
+          - "AI連携機能テスト報告書"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/tests/integration/api-endpoints.spec.ts" # AI関連テストケース
+          - "exhibition-meeting-system/frontend/app/client/meetings/new/page.tsx" # 商談目的生成AI連携機能
+          - "exhibition-meeting-system/backend/modules/ai/ai.service.ts" # AIサービスモック実装
+          - "exhibition-meeting-system/backend/modules/ai/ai.controller.ts" # AI API
+      - task_id: P04-T06
+        task_name: "全体リグレッションテストとバグ修正"
+        responsible_team: QA Team, Frontend Team, Backend Team
+        start_date: 2025-08-05
+        end_date: 2025-08-15
+        dependencies: ["P04-T01", "P04-T02", "P04-T03", "P04-T04", "P04-T05"]
+        deliverables:
+          - "最終テスト報告書"
+          - "バグ修正済みシステム"
+        status: "完了"
+        relevant_files:
+          - "exhibition-meeting-system/backend/tests/**"
+          - "exhibition-meeting-system/frontend/**" # 全体
+          - "exhibition-meeting-system/backend/tests/integration/ai-endpoints.spec.ts" # AI連携テスト
+          - "exhibition-meeting-system/backend/modules/ai/ai.controller.ts" # レート制限機能追加
+    overall_deliverables:
+      - "結合テスト完了"
+      - "主要なバグ修正完了"
+    status: "完了"
+
+  - phase_id: P05
+    phase_name: "5. デプロイ準備とリリース"
+    description: "本番環境へのデプロイ準備と最終確認、リリース作業を行います。"
+    start_date: 2025-08-16
+    end_date: 2025-08-30
+    responsible_team: DevOps Team, Backend Team, Frontend Team
+    tasks:
+      - task_id: P05-T01
+        task_name: "本番環境構築・設定"
+        responsible_team: DevOps Team
+        start_date: 2025-08-16
+        end_date: 2025-08-20
+        dependencies: ["P04-T06"]
+        deliverables:
+          - "本番環境"
+        relevant_files:
+          - "exhibition-meeting-system/backend/deployment/cloud-run.yaml" # (structure.yamlより想定、ファイルリストに存在しない)
+          - "exhibition-meeting-system/backend/config/app-config.ts" # 本番用設定
+      - task_id: P05-T02
+        task_name: "デプロイメントパイプライン設定 (Cloud Build等)"
+        responsible_team: DevOps Team
+        start_date: 2025-08-19
+        end_date: 2025-08-23
+        dependencies: ["P05-T01"]
+        deliverables:
+          - "CI/CDパイプライン"
+        relevant_files:
+          - "exhibition-meeting-system/backend/deployment/cloud-build.yaml"
+          - "exhibition-meeting-system/backend/deployment/dockerfile" # (structure.yamlより想定、ファイルリストに存在しない)
+          - "exhibition-meeting-system/frontend/next.config.mjs" # ビルド設定
+          - "exhibition-meeting-system/frontend/package.json" # ビルドスクリプト
+      - task_id: P05-T03
+        task_name: "最終受け入れテスト (UAT)"
+        responsible_team: Stakeholders, QA Team
+        start_date: 2025-08-21
+        end_date: 2025-08-26
+        dependencies: ["P05-T01"]
+        deliverables:
+          - "UAT承認"
+        relevant_files: [] # テストケースドキュメント等
+      - task_id: P05-T04
+        task_name: "リリース判定会議"
+        responsible_team: Project Manager, Team Leads
+        start_date: 2025-08-27
+        end_date: 2025-08-27
+        dependencies: ["P05-T03"]
+        deliverables:
+          - "リリース承認"
+        relevant_files: [] # 会議議事録等
+      - task_id: P05-T05
+        task_name: "本番リリース"
+        responsible_team: DevOps Team, Backend Team, Frontend Team
+        start_date: 2025-08-28
+        end_date: 2025-08-28
+        dependencies: ["P05-T04"]
+        deliverables:
+          - "リリース済みSaaS"
+        relevant_files:
+          - "exhibition-meeting-system/backend/deployment/cloud-build.yaml" # リリース実行
+    overall_deliverables:
+      - "SaaS本番リリース完了"
+      - "運用ドキュメント"
+
+# 備考:
+# - relevant_files には、タスクの実施や成果物の作成に直接関連する主要なファイルを記載しています。
+# - (想定) と記載されているファイルは、提供されたファイルリストには存在しないものの、タスク内容から存在が推測されるファイルです。
+# - structure.yaml はプロジェクト全体の設計図として多くのタスクの前提となりますが、ここではより具体的なファイルを優先しています。
+# - UIコンポーネント (components/ui/*.tsx) は多数存在するため、主要な機能ページやフォーム、レイアウトコンポーネントを優先的に記載しています。

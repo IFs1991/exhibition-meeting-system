@@ -1,0 +1,877 @@
+src:
+  structure.yaml:
+    content: |-
+      レセプト理由書アシスタント - バックエンドプロジェクト構造
+      
+      本プロジェクトは、整骨院向けレセプト理由書作成支援システムのバックエンド実装です。
+      Google Gemini AIとRAG（検索拡張生成）アーキテクチャを活用し、過去の承認・返戻事例に
+      基づいた最適な理由書作成をサポートします。
+      
+      主な機能:
+      - ユーザー認証と権限管理
+      - 過去事例のデータ管理（検索・編集・削除）
+      - 患者情報と症状に基づく類似事例の高速検索
+      - AIによる理由書生成と提案
+      - 承認・返戻に関するフィードバックシステム
+      - 統計分析と継続的な学習・改善機能
+      
+      技術スタック:
+      - TypeScript/NestJS
+      - PostgreSQL (pg_vector拡張)
+      - Google Cloud Platform (Cloud Run, Cloud SQL, Vertex AI)
+      - Google Gemini API
+    agent選定理由: |-
+      Claude-3.5-Sonnetは複雑なバックエンドシステム設計に適しており、特にRAGアーキテクチャと
+      AIモデル連携の詳細な実装設計に優れています。またGCP、PostgreSQL、TypeScriptなどの
+      複合的な技術スタックの構造化にも高い能力を発揮します。
+    api選定理由: |-
+      このプロジェクトでは、外部APIの選定は必要ありませんが、内部的にはGoogle Gemini APIを
+      活用して理由書生成を行います。
+    dependency: []
+    agent: "claude-3-5-sonnet-20241022"
+    api: []
+
+  backend:
+    config:
+      app-config.ts:
+        content: |-
+          アプリケーション全体の設定を管理するモジュール
+          - 環境変数の読み込みと検証
+          - システム全体の設定パラメータ定義
+          - 環境ごと（開発/ステージング/本番）の設定値管理
+          - ロギングレベルの設定
+          - レート制限の設定
+        agent選定理由: |-
+          構成管理ファイルの実装は正確性と安全性が重要で、Claude-3.5-Sonnetは環境変数の
+          バリデーションと型安全な設定管理の実装に適しています。
+        dependency: []
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+      database-config.ts:
+        content: |-
+          データベース接続設定を管理するモジュール
+          - PostgreSQL接続情報の設定
+          - コネクションプール設定
+          - pg_vector拡張の設定
+          - データベースマイグレーション設定
+          - クエリタイムアウト設定
+        agent選定理由: |-
+          データベース接続の設定は高度な設定と最適化が必要で、Claude-3.5-Sonnetはこうした
+          技術的な詳細の実装に優れています。
+        dependency: []
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+      ai-service-config.ts:
+        content: |-
+          AI関連サービスの設定を管理するモジュール
+          - Vertex AI接続設定
+          - Gemini API設定（モデル、パラメータなど）
+          - エンベディングサービス設定
+          - プロンプトテンプレート管理
+          - AIリクエストのタイムアウト設定
+        agent選定理由: |-
+          AI関連の設定はGoogle Cloud特有の実装詳細を含むため、Claude-3.5-Sonnetの詳細な
+          理解と実装能力が適しています。
+        dependency: [
+          "src/backend/services/ai/prompt-templates.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+    core:
+      main.ts:
+        content: |-
+          アプリケーションのエントリーポイント
+          - NestJSアプリケーションのブートストラップ
+          - ミドルウェアの設定
+          - グローバルフィルターとインターセプターの登録
+          - Swaggerドキュメントの設定
+          - アプリケーションの起動処理
+        agent選定理由: |-
+          アプリケーションのブートストラップ処理は全体アーキテクチャの理解が必要で、
+          Claude-3.5-Sonnetは複雑なアーキテクチャ設計に優れています。
+        dependency: [
+          "src/backend/config/app-config.ts",
+          "src/backend/modules/app.module.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+      app.module.ts:
+        content: |-
+          アプリケーションのルートモジュール
+          - 各機能モジュールのインポート設定
+          - プロバイダーの登録
+          - グローバルサービスの設定
+          - モジュール間の依存関係の定義
+        agent選定理由: |-
+          ルートモジュールはアプリケーション全体の構造を定義する重要な部分で、
+          Claude-3.5-Sonnetはモジュール間の依存関係を適切に設計できます。
+        dependency: [
+          "src/backend/modules/user/user.module.ts",
+          "src/backend/modules/receipt/receipt.module.ts",
+          "src/backend/modules/ai/ai.module.ts",
+          "src/backend/modules/feedback/feedback.module.ts",
+          "src/backend/modules/stats/stats.module.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+    modules:
+      user:
+        user.module.ts:
+          content: |-
+            ユーザー管理モジュール
+            - コントローラー、サービス、リポジトリの登録
+            - 認証関連のプロバイダー設定
+            - 外部サービス（Identity Platform）との連携設定
+          agent選定理由: |-
+            ユーザー管理モジュールはセキュリティ面での配慮が重要で、Claude-3.5-Sonnetは
+            セキュアな実装の設計に適しています。
+          dependency: [
+            "src/backend/modules/user/user.controller.ts",
+            "src/backend/modules/user/user.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        user.controller.ts:
+          content: |-
+            ユーザー関連のAPIエンドポイント定義
+            - ユーザー登録エンドポイント
+            - ログインエンドポイント
+            - プロフィール管理エンドポイント
+            - パスワード変更・リセットエンドポイント
+            - 入力バリデーション
+          agent選定理由: |-
+            APIエンドポイント設計はRESTful原則の理解と一貫性のある設計が必要で、
+            Claude-3.5-Sonnetはこうした設計に強みがあります。
+          dependency: [
+            "src/backend/modules/user/user.service.ts",
+            "src/backend/modules/user/dto/user.dto.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        user.service.ts:
+          content: |-
+            ユーザー関連のビジネスロジック実装
+            - ユーザー登録ロジック
+            - 認証ロジック（JWT生成など）
+            - プロフィール更新ロジック
+            - パスワードハッシュ化と検証
+            - Identity Platformとの連携実装
+          agent選定理由: |-
+            認証関連のビジネスロジックはセキュリティが特に重要で、Claude-3.5-Sonnetは
+            セキュアな実装の細部までカバーできます。
+          dependency: [
+            "src/backend/modules/user/repositories/user.repository.ts",
+            "src/backend/config/app-config.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        dto:
+          user.dto.ts:
+            content: |-
+              ユーザー関連のデータ転送オブジェクト定義
+              - ユーザー登録DTOクラス
+              - ログインDTOクラス
+              - プロフィール更新DTOクラス
+              - バリデーションルール設定
+            agent選定理由: |-
+              DTOクラスは型安全性と入力検証が重要で、Claude-3.5-Sonnetは適切な
+              バリデーションルールの実装に優れています。
+            dependency: []
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+        repositories:
+          user.repository.ts:
+            content: |-
+              ユーザーデータのデータベースアクセス層
+              - ユーザーCRUD操作の実装
+              - クエリ最適化
+              - トランザクション処理
+            agent選定理由: |-
+              データアクセス層はパフォーマンスとセキュリティの両立が必要で、
+              Claude-3.5-Sonnetは最適化された実装に強みがあります。
+            dependency: [
+              "src/backend/config/database-config.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+        guards:
+          auth.guard.ts:
+            content: |-
+              認証ガード実装
+              - JWTトークン検証
+              - ルートアクセス制御
+              - 認証失敗時の例外処理
+            agent選定理由: |-
+              認証ガードはセキュリティの要であり、Claude-3.5-Sonnetはセキュアな
+              実装の設計に適しています。
+            dependency: [
+              "src/backend/modules/user/user.service.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+      receipt:
+        receipt.module.ts:
+          content: |-
+            レセプト事例管理モジュール
+            - コントローラー、サービス、リポジトリの登録
+            - タグ管理関連のプロバイダー設定
+            - ベクトル検索サービスの設定
+          agent選定理由: |-
+            レセプトモジュールはシステムの中核機能を含み、Claude-3.5-Sonnetは
+            複雑なモジュール構成の設計に適しています。
+          dependency: [
+            "src/backend/modules/receipt/receipt.controller.ts",
+            "src/backend/modules/receipt/receipt.service.ts",
+            "src/backend/modules/receipt/tag/tag.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        receipt.controller.ts:
+          content: |-
+            レセプト事例関連のAPIエンドポイント定義
+            - 事例登録エンドポイント
+            - 事例検索エンドポイント
+            - 事例更新・削除エンドポイント
+            - タグ管理エンドポイント
+            - 入力バリデーション
+          agent選定理由: |-
+            APIエンドポイント設計は一貫性と使いやすさが重要で、Claude-3.5-Sonnetは
+            ユーザビリティを考慮した設計ができます。
+          dependency: [
+            "src/backend/modules/receipt/receipt.service.ts",
+            "src/backend/modules/receipt/dto/receipt.dto.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        receipt.service.ts:
+          content: |-
+            レセプト事例関連のビジネスロジック実装
+            - 事例登録・更新ロジック
+            - 事例検索ロジック（キーワード、タグベース）
+            - ベクトル検索連携
+            - データ構造化と正規化処理
+            - タグ自動抽出ロジック
+          agent選定理由: |-
+            中核ビジネスロジックは複雑な処理フローが含まれ、Claude-3.5-Sonnetは
+            複雑なデータ処理アルゴリズムの実装に適しています。
+          dependency: [
+            "src/backend/modules/receipt/repositories/receipt.repository.ts",
+            "src/backend/modules/receipt/tag/tag.service.ts",
+            "src/backend/services/vector/vector-search.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        dto:
+          receipt.dto.ts:
+            content: |-
+              レセプト事例関連のデータ転送オブジェクト定義
+              - 事例登録DTOクラス
+              - 事例検索DTOクラス
+              - 事例更新DTOクラス
+              - バリデーションルール設定
+            agent選定理由: |-
+              データ構造の定義は型安全性と一貫性が重要で、Claude-3.5-Sonnetは
+              厳密な型定義と検証ルールの実装に優れています。
+            dependency: []
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+        repositories:
+          receipt.repository.ts:
+            content: |-
+              レセプト事例データのデータベースアクセス層
+              - 事例CRUD操作の実装
+              - ベクトル検索クエリの実装
+              - タグ関連クエリの実装
+              - クエリ最適化
+            agent選定理由: |-
+              ベクトル検索機能を含むデータアクセス層は専門知識が必要で、
+              Claude-3.5-Sonnetは特殊なデータベース機能の実装に強みがあります。
+            dependency: [
+              "src/backend/config/database-config.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+        tag:
+          tag.service.ts:
+            content: |-
+              タグ管理関連のビジネスロジック実装
+              - タグ登録・更新ロジック
+              - タグ検索・分類ロジック
+              - AIによるタグ自動付与ロジック
+              - タグのカテゴリ管理
+            agent選定理由: |-
+              タグ管理はカテゴリ分類と自動抽出の複雑なロジックが含まれ、
+              Claude-3.5-Sonnetはこうした知識処理の実装に適しています。
+            dependency: [
+              "src/backend/modules/receipt/repositories/tag.repository.ts",
+              "src/backend/services/ai/ai.service.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+          tag.repository.ts:
+            content: |-
+              タグデータのデータベースアクセス層
+              - タグCRUD操作の実装
+              - タグ関連クエリの実装
+              - 事例-タグ関連付けクエリの実装
+            agent選定理由: |-
+              多対多関係を含むデータアクセスはクエリ最適化が重要で、
+              Claude-3.5-Sonnetは効率的なクエリ設計ができます。
+            dependency: [
+              "src/backend/config/database-config.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+      ai:
+        ai.module.ts:
+          content: |-
+            AI関連機能のモジュール
+            - コントローラー、サービス、リポジトリの登録
+            - Vertex AI連携サービスの設定
+            - プロンプト管理サービスの設定
+          agent選定理由: |-
+            AI連携モジュールは外部サービス統合に関する知識が必要で、
+            Claude-3.5-Sonnetはこうした技術統合の設計に優れています。
+          dependency: [
+            "src/backend/modules/ai/ai.controller.ts",
+            "src/backend/modules/ai/ai.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        ai.controller.ts:
+          content: |-
+            AI関連のAPIエンドポイント定義
+            - 理由書生成エンドポイント
+            - チャットインターフェースエンドポイント
+            - AIセッション管理エンドポイント
+            - 入力バリデーション
+          agent選定理由: |-
+            AI連携APIはプロンプト管理とセッション状態の考慮が必要で、
+            Claude-3.5-Sonnetはこうした状態管理の設計に適しています。
+          dependency: [
+            "src/backend/modules/ai/ai.service.ts",
+            "src/backend/modules/ai/dto/ai-request.dto.ts"
+          ]
+          agent: "claude-3.5-sonnet-20241022"
+          api: []
+          
+        ai.service.ts:
+          content: |-
+            AI関連のビジネスロジック実装
+            - Gemini API連携ロジック
+            - プロンプト生成と最適化
+            - チャット履歴管理
+            - RAGプロセスのオーケストレーション
+            - エラーハンドリングとリトライ
+          agent選定理由: |-
+            GeminiとRAGの連携は複雑なロジックが必要で、Claude-3.5-Sonnetは
+            AIとデータベース連携の実装に強みがあります。
+          dependency: [
+            "src/backend/services/ai/vertex-ai.service.ts",
+            "src/backend/services/ai/prompt-templates.ts",
+            "src/backend/modules/receipt/receipt.service.ts",
+            "src/backend/modules/ai/repositories/interaction.repository.ts"
+          ]
+          agent: "gemini-2.0-flash-thinking-exp-01-21"
+          api: []
+          
+        dto:
+          ai-request.dto.ts:
+            content: |-
+              AI関連リクエストのデータ転送オブジェクト定義
+              - 理由書生成リクエストDTOクラス
+              - チャットメッセージDTOクラス
+              - セッション管理DTOクラス
+              - バリデーションルール設定
+            agent選定理由: |-
+              AI関連DTOはプロンプト構造の理解が必要で、Claude-3.5-Sonnetは
+              効果的なプロンプト構造の設計ができます。
+            dependency: []
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+        repositories:
+          interaction.repository.ts:
+            content: |-
+              AI対話履歴のデータベースアクセス層
+              - 対話履歴CRUD操作の実装
+              - セッション管理クエリの実装
+              - 生成理由書保存クエリの実装
+            agent選定理由: |-
+              セッション管理を含むデータアクセスは状態管理が重要で、
+              Claude-3.5-Sonnetは複雑な状態管理の実装に適しています。
+            dependency: [
+              "src/backend/config/database-config.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+      feedback:
+        feedback.module.ts:
+          content: |-
+            フィードバック管理モジュール
+            - コントローラー、サービス、リポジトリの登録
+            - 統計分析サービスの設定
+          agent選定理由: |-
+            フィードバックモジュールはシステム改善の重要要素で、Claude-3.5-Sonnetは
+            継続的改善のための設計に適しています。
+          dependency: [
+            "src/backend/modules/feedback/feedback.controller.ts",
+            "src/backend/modules/feedback/feedback.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        feedback.controller.ts:
+          content: |-
+            フィードバック関連のAPIエンドポイント定義
+            - フィードバック送信エンドポイント
+            - 承認・返戻結果報告エンドポイント
+            - フィードバック検索エンドポイント
+            - 入力バリデーション
+          agent選定理由: |-
+            フィードバックAPIは使いやすさが重要で、Claude-3.5-Sonnetは
+            ユーザビリティを考慮した設計ができます。
+          dependency: [
+            "src/backend/modules/feedback/feedback.service.ts",
+            "src/backend/modules/feedback/dto/feedback.dto.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        feedback.service.ts:
+          content: |-
+            フィードバック関連のビジネスロジック実装
+            - フィードバック登録ロジック
+            - 学習データへの反映ロジック
+            - 承認・返戻事例の分析ロジック
+            - データ品質改善プロセス
+          agent選定理由: |-
+            フィードバック処理はシステム学習に直結し、Claude-3.5-Sonnetは
+            継続学習システムの実装に適しています。
+          dependency: [
+            "src/backend/modules/feedback/repositories/feedback.repository.ts",
+            "src/backend/modules/receipt/receipt.service.ts",
+            "src/backend/modules/stats/stats.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        dto:
+          feedback.dto.ts:
+            content: |-
+              フィードバック関連のデータ転送オブジェクト定義
+              - フィードバック提出DTOクラス
+              - 結果報告DTOクラス
+              - フィードバック検索DTOクラス
+              - バリデーションルール設定
+            agent選定理由: |-
+              フィードバックデータ構造は検証とアクセス制御が重要で、
+              Claude-3.5-Sonnetは安全なデータ処理の設計に適しています。
+            dependency: []
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+        repositories:
+          feedback.repository.ts:
+            content: |-
+              フィードバックデータのデータベースアクセス層
+              - フィードバックCRUD操作の実装
+              - 統計クエリの実装
+              - 事例関連フィードバッククエリの実装
+            agent選定理由: |-
+              複雑な関連データ検索を含むデータアクセスはクエリ最適化が重要で、
+              Claude-3.5-Sonnetは効率的なクエリ設計ができます。
+            dependency: [
+              "src/backend/config/database-config.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+      stats:
+        stats.module.ts:
+          content: |-
+            統計分析モジュール
+            - コントローラー、サービス、リポジトリの登録
+            - データ集計サービスの設定
+          agent選定理由: |-
+            統計モジュールはデータ分析機能が中心で、Claude-3.5-Sonnetは
+            分析アルゴリズムの設計に適しています。
+          dependency: [
+            "src/backend/modules/stats/stats.controller.ts",
+            "src/backend/modules/stats/stats.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        stats.controller.ts:
+          content: |-
+            統計分析関連のAPIエンドポイント定義
+            - 承認率統計エンドポイント
+            - 傷病部位別統計エンドポイント
+            - 使用状況統計エンドポイント
+            - データエクスポートエンドポイント
+          agent選定理由: |-
+            統計APIはデータの視覚化と分析に焦点があり、Claude-3.5-Sonnetは
+            データ分析APIの設計に適しています。
+          dependency: [
+            "src/backend/modules/stats/stats.service.ts",
+            "src/backend/modules/stats/dto/stats-request.dto.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        stats.service.ts:
+          content: |-
+            統計分析関連のビジネスロジック実装
+            - データ集計ロジック
+            - 傷病部位別分析ロジック
+            - 症状別分析ロジック
+            - 時系列傾向分析ロジック
+            - レポート生成ロジック
+          agent選定理由: |-
+            統計処理は複雑な集計ロジックが必要で、Claude-3.5-Sonnetは
+            データ分析アルゴリズムの実装に適しています。
+          dependency: [
+            "src/backend/modules/stats/repositories/stats.repository.ts",
+            "src/backend/modules/receipt/receipt.service.ts",
+            "src/backend/modules/feedback/feedback.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        dto:
+          stats-request.dto.ts:
+            content: |-
+              統計分析リクエストのデータ転送オブジェクト定義
+              - 期間指定DTOクラス
+              - カテゴリフィルターDTOクラス
+              - グループ化オプションDTOクラス
+              - ソートオプションDTOクラス
+            agent選定理由: |-
+              統計分析DTOは柔軟なフィルタリングオプションが必要で、
+              Claude-3.5-Sonnetは汎用的なオプション設計に適しています。
+            dependency: []
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+        repositories:
+          stats.repository.ts:
+            content: |-
+              統計データのデータベースアクセス層
+              - 集計クエリの実装
+              - 分析用高度クエリの実装
+              - パフォーマンス最適化
+            agent選定理由: |-
+              統計クエリは高度な集計関数と最適化が必要で、Claude-3.5-Sonnetは
+              効率的な分析クエリの設計が得意です。
+            dependency: [
+              "src/backend/config/database-config.ts"
+            ]
+            agent: "claude-3-5-sonnet-20241022"
+            api: []
+            
+    services:
+      ai:
+        vertex-ai.service.ts:
+          content: |-
+            Vertex AI連携サービス
+            - Gemini APIリクエスト実装
+            - テキストエンベディング生成実装
+            - APIエラーハンドリング
+            - リトライメカニズム
+            - 認証処理
+          agent選定理由: |-
+            Google Cloud APIの連携は専門知識が必要で、Claude-3.5-Sonnetは
+            クラウドサービス連携の実装に強みがあります。
+          dependency: [
+            "src/backend/config/ai-service-config.ts"
+          ]
+          agent: "gemini-2.0-flash-thinking-exp-01-21"
+          api: []
+          
+        prompt-templates.ts:
+          content: |-
+            AIプロンプトテンプレート管理
+            - 事例ベースの理由書生成プロンプト
+            - 症状分析プロンプト
+            - タグ抽出プロンプト
+            - フューショット学習用プロンプト
+            - システムプロンプト
+          agent選定理由: |-
+            プロンプト設計はAIの性能に直結し、gemini-2.0-flash-thinkingは
+            効果的なプロンプト設計に特に強みがあります。
+          dependency: []
+          agent: "gemini-2.0-flash-thinking-exp-01-21"
+          api: []
+          
+      vector:
+        vector-search.service.ts:
+          content: |-
+            ベクトル検索サービス
+            - テキストベクトル化処理
+            - ベクトル類似性検索実装
+            - ハイブリッド検索（ベクトル+キーワード）実装
+            - 検索結果ランキングロジック
+          agent選定理由: |-
+            ベクトル検索は数学的背景の理解が必要で、Claude-3.5-Sonnetは
+            ベクトル演算とデータベース連携の実装に適しています。
+          dependency: [
+            "src/backend/services/ai/vertex-ai.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+      
+      common:
+        error-handler.service.ts:
+          content: |-
+            共通エラーハンドリングサービス
+            - 例外種別の定義
+            - グローバルエラー捕捉処理
+            - エラーログ記録
+            - フロントエンド向けエラーメッセージ正規化
+          agent選定理由: |-
+            エラーハンドリングは安全性と堅牢性が重要で、Claude-3.5-Sonnetは
+            包括的なエラー処理の設計に適しています。
+          dependency: []
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+        logger.service.ts:
+          content: |-
+            ロギングサービス
+            - 構造化ログ出力
+            - ログレベル制御
+            - コンテキスト情報付加
+            - CloudLogging連携
+          agent選定理由: |-
+            ロギングシステムはオブザーバビリティの基盤で、Claude-3.5-Sonnetは
+            効果的なロギング設計ができます。
+          dependency: [
+            "src/backend/config/app-config.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+        
+    middlewares:
+      auth.middleware.ts:
+        content: |-
+          認証ミドルウェア
+          - JWTトークン検証
+          - リクエスト認証情報付加
+          - 認証エラー処理
+        agent選定理由: |-
+          認証ミドルウェアはセキュリティの最前線で、Claude-3.5-Sonnetは
+          セキュリティミドルウェアの実装に適しています。
+        dependency: [
+          "src/backend/modules/user/user.service.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+      rate-limiter.middleware.ts:
+        content: |-
+          レート制限ミドルウェア
+          - APIリクエスト制限実装
+          - ユーザー別制限設定
+          - エンドポイント別制限設定
+          - 制限超過時の応答処理
+        agent選定理由: |-
+          レート制限はシステム保護に不可欠で、Claude-3.5-Sonnetは
+          安全なアクセス制御の実装に適しています。
+        dependency: [
+          "src/backend/config/app-config.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+      logging.middleware.ts:
+        content: |-
+          ロギングミドルウェア
+          - リクエスト/レスポンスロギング
+          - パフォーマンスメトリクス収集
+          - エラーロギング
+          - PII情報マスキング
+        agent選定理由: |-
+          ロギングミドルウェアはシステム監視の基盤で、Claude-3.5-Sonnetは
+          効果的な監視設計ができます。
+        dependency: [
+          "src/backend/services/common/logger.service.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+  database:
+    migrations:
+      initial-schema.ts:
+        content: |-
+          初期データベーススキーマ作成マイグレーション
+          - ユーザーテーブル作成
+          - レセプト事例テーブル作成
+          - タグテーブル作成
+          - 対話履歴テーブル作成
+          - インデックス作成
+          - pg_vector拡張有効化
+        agent選定理由: |-
+          データベーススキーマ設計は全体データモデルの理解が必要で、
+          Claude-3.5-Sonnetは複雑なデータモデルの設計に優れています。
+        dependency: []
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+      seed-data.ts:
+        content: |-
+          初期データ投入マイグレーション
+          - デフォルトタグデータ作成
+          - サンプル事例データ作成（開発環境用）
+          - テストユーザー作成（開発環境用）
+        agent選定理由: |-
+          シードデータ作成は実際のデータ構造の理解が必要で、
+          Claude-3.5-Sonnetはドメイン知識を活かした実装ができます。
+        dependency: [
+          "src/database/migrations/initial-schema.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+  tests:
+    unit:
+      ai:
+        ai.service.spec.ts:
+          content: |-
+            AI生成サービスの単体テスト
+            - プロンプト生成テスト
+            - Gemini API連携テスト
+            - エラーハンドリングテスト
+            - レスポンス処理テスト
+          agent選定理由: |-
+            AIサービステストは複雑なモック処理が必要で、Claude-3.5-Sonnetは
+            高度なテストケース設計に適しています。
+          dependency: [
+            "src/backend/modules/ai/ai.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+          
+      receipt:
+        receipt.service.spec.ts:
+          content: |-
+            レセプトサービスの単体テスト
+            - 事例登録テスト
+            - 検索機能テスト
+            - ベクトル検索テスト
+            - タグ管理テスト
+          agent選定理由: |-
+            ベクトル検索を含むテストは特殊なモックが必要で、Claude-3.5-Sonnetは
+            複雑なテストケース設計に適しています。
+          dependency: [
+            "src/backend/modules/receipt/receipt.service.ts"
+          ]
+          agent: "claude-3-5-sonnet-20241022"
+          api: []
+        
+    integration:
+      api-endpoints.spec.ts:
+        content: |-
+          APIエンドポイントの統合テスト
+          - ユーザー認証フローテスト
+          - 事例登録・検索フローテスト
+          - 理由書生成フローテスト
+          - フィードバックフローテスト
+        agent選定理由: |-
+          APIテストは全体フローの理解が必要で、Claude-3.5-Sonnetは
+          エンドツーエンドのテスト設計に適しています。
+        dependency: [
+          "src/backend/modules/user/user.controller.ts",
+          "src/backend/modules/receipt/receipt.controller.ts",
+          "src/backend/modules/ai/ai.controller.ts",
+          "src/backend/modules/feedback/feedback.controller.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+      database.spec.ts:
+        content: |-
+          データベース操作の統合テスト
+          - リポジトリ層テスト
+          - トランザクション処理テスト
+          - ベクトル検索性能テスト
+          - インデックス効果検証
+        agent選定理由: |-
+          データベーステストはパフォーマンス考慮が必要で、Claude-3.5-Sonnetは
+          性能検証テストの設計に適しています。
+        dependency: [
+          "src/backend/modules/receipt/repositories/receipt.repository.ts",
+          "src/backend/modules/ai/repositories/interaction.repository.ts",
+          "src/backend/modules/user/repositories/user.repository.ts",
+          "src/backend/modules/feedback/repositories/feedback.repository.ts"
+        ]
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+        
+  deployment:
+    dockerfile:
+      content: |-
+        バックエンドアプリケーションのDockerfile
+        - Node.jsベースイメージ設定
+        - 依存関係インストール
+        - ビルド手順
+        - 実行環境設定
+        - セキュリティ設定
+      agent選定理由: |-
+        Dockerfileはセキュリティと効率性の両立が重要で、Claude-3.5-Sonnetは
+        セキュアなコンテナ設計に適しています。
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+      
+    cloud-run.yaml:
+      content: |-
+        Google Cloud Runデプロイメント設定
+        - サービス定義
+        - スケーリング設定
+        - メモリ・CPU割り当て
+        - 環境変数設定
+        - 認証設定
+      agent選定理由: |-
+        クラウド設定は特定プラットフォームの知識が必要で、Claude-3.5-Sonnetは
+        GCP固有の設定に関する実装に適しています。
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+      
+    cloud-build.yaml:
+      content: |-
+        Google Cloud Buildパイプライン設定
+        - ビルドステップ定義
+        - テスト実行設定
+        - イメージ作成設定
+        - デプロイ設定
+        - 通知設定
+      agent選定理由: |-
+        CIパイプラインはビルドプロセスの理解が必要で、Claude-3.5-Sonnetは
+        複雑なビルドフローの設計に適しています。
+      dependency: [
+        "src/deployment/dockerfile"
+      ]
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
