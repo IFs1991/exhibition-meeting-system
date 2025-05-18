@@ -69,13 +69,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { user, token } = response;
       setUser(user);
 
-      // ユーザーロール情報をCookieに設定
-      document.cookie = `user_role=${user.role}; path=/; max-age=86400`; // 24時間有効
+      // Cookieの有効期限を24時間に統一
+      const cookieExpiry = 24 * 60 * 60; // 24時間（秒単位）
+
+      // ユーザーロール情報をCookieに確実に設定（Secure属性を追加）
+      document.cookie = `user_role=${user.role}; path=/; max-age=${cookieExpiry}; SameSite=Strict`;
 
       // 認証トークンも明示的に設定
-      document.cookie = `auth_token=${token}; path=/; max-age=86400`; // 24時間有効
+      document.cookie = `auth_token=${token}; path=/; max-age=${cookieExpiry}; SameSite=Strict`;
 
-      console.log("認証情報をCookieに設定:", { role: user.role, tokenExists: !!token });
+      console.log("認証情報をCookieに設定:", {
+        role: user.role,
+        tokenExists: !!token,
+        roleInCookie: document.cookie.includes(`user_role=${user.role}`),
+        tokenInCookie: document.cookie.includes('auth_token=')
+      });
 
       toast({
         title: 'ログインしました',

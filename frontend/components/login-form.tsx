@@ -27,13 +27,12 @@ export function LoginForm() {
         router.push("/admin/dashboard");
       } else if (response?.user?.role === "client") {
         console.log("クライアントとしてログイン成功: /client/dashboard へリダイレクト");
-
-        // 画面遷移を確実に行うため、直接location.hrefを使用
-        window.location.href = "/client/dashboard";
+        // router.push()メソッドに統一
+        router.push("/client/dashboard");
       } else {
         console.error("不明なユーザーロール:", response?.user?.role);
         // 不明なロールの場合もクライアントダッシュボードへ
-        window.location.href = "/client/dashboard";
+        router.push("/client/dashboard");
       }
     } catch (error) {
       // エラー処理はuseAuthのコンテキスト内で行われるため、ここでは何もしない

@@ -1,0 +1,206 @@
+project_name: 展示会商談管理システム - ログインリダイレクト問題解決
+version: 1.1 # 要件追加に伴いバージョン更新
+creation_date: 2025-05-16
+last_updated_date: 2025-05-16
+overall_start_date: 2025-05-16
+overall_estimated_end_date: 2025-05-23
+
+# 担当者凡例
+#   - FE_Dev: フロントエンド開発者
+#   - BE_Dev: バックエンド開発者
+#   - QA_Tester: QAテスター
+
+phases:
+  - phase_id: P01
+    phase_name: "1. 問題分析と原因特定"
+    description: "ログインリダイレクト問題（ロール別リダイレクトを含む）の原因を特定するための詳細調査。"
+    start_date: 2025-05-16
+    end_date: 2025-05-17
+    responsible_team: Frontend Team, Backend Team
+    tasks:
+      - task_id: P01-T01
+        task_name: "フロントエンド認証フローのログベース分析"
+        description: "ログインフォーム送信からリダイレクト試行までのブラウザコンソールログ、ネットワークログ、および関連コンポーネントの動作を詳細に確認する。特に、ユーザーロール (admin/client) に応じたリダイレクト先の分岐ロジック (`/admin/dashboard` または `/client/dashboard`) が正しく動作しているかを確認する。"
+        responsible_person: FE_Dev
+        start_date: 2025-05-16
+        end_date: 2025-05-16
+        dependencies: []
+        deliverables:
+          - "フロントエンドログ分析レポート"
+          - "APIリクエスト・レスポンス詳細"
+          - "ロール別リダイレクト処理の動作確認結果"
+        relevant_files:
+          - "frontend/components/login-form.tsx"
+          - "frontend/contexts/auth-context.tsx"
+          - "frontend/middleware.ts"
+          - "frontend/lib/api.ts"
+        status: "未着手"
+      - task_id: P01-T02
+        task_name: "バックエンド認証ロジックのログベース分析"
+        description: "指定された認証情報 (例: admin@example.com, client@example.com) でのログインリクエストに対するバックエンド側の処理フロー、データベースアクセス、ロール判定 (admin/client)、トークン生成、レスポンス内容（特に返却されるユーザーロール情報）をログで詳細に確認する。"
+        responsible_person: BE_Dev
+        start_date: 2025-05-16
+        end_date: 2025-05-17
+        dependencies: []
+        deliverables:
+          - "バックエンドログ分析レポート"
+          - "認証処理シーケンス図（必要であれば）"
+          - "返却されるユーザーロール情報の確認結果"
+        relevant_files:
+          - "backend/modules/user/user.controller.ts"
+          - "backend/modules/user/user.service.ts"
+          - "backend/modules/user/guards/auth.guard.ts"
+          - "backend/modules/user/repositories/user.repository.ts"
+          - "backend/src/app.controller.ts" # /auth/login などのエンドポイントがある場合
+        status: "未着手"
+      - task_id: P01-T03
+        task_name: "テストデータとデータベースの確認"
+        description: "データベース内の `admin@example.com` および `client@example.com` ユーザーのパスワードハッシュ、ロール情報が期待通りであるか確認する。また、関連するテストデータやシードデータにロール設定の誤りがないか確認する。"
+        responsible_person: BE_Dev
+        start_date: 2025-05-17
+        end_date: 2025-05-17
+        dependencies: []
+        deliverables:
+          - "テストデータ/DB確認結果レポート（ロール情報含む）"
+        relevant_files:
+          - "backend/database/migrations/seed-data.ts"
+          - "backend/tests/integration/api-endpoints.spec.ts"
+          - "backend/modules/user/user.entity.ts"
+        status: "未着手"
+      - task_id: P01-T04
+        task_name: "原因特定と修正方針の決定"
+        description: "P01-T01からP01-T03の結果を総合的に分析し、問題の根本原因（ロール別リダイレクトの不備を含む）を特定する。特定した原因に対する修正方針を策定する。"
+        responsible_person: FE_Dev, BE_Dev
+        start_date: 2025-05-17
+        end_date: 2025-05-17
+        dependencies: ["P01-T01", "P01-T02", "P01-T03"]
+        deliverables:
+          - "原因特定報告書（ロール別リダイレクト問題の原因含む）"
+          - "修正方針ドキュメント"
+        status: "未着手"
+    overall_deliverables:
+      - "ログインリダイレクト問題（ロール別分岐含む）の原因特定報告書"
+      - "修正方針定義書"
+
+  - phase_id: P02
+    phase_name: "2. 修正対応"
+    description: "特定された原因に基づき、フロントエンドおよびバックエンドのコードを修正する。ロールに応じたリダイレクト処理の確実な実装を含む。"
+    start_date: 2025-05-19
+    end_date: 2025-05-20
+    responsible_team: Frontend Team, Backend Team
+    tasks:
+      - task_id: P02-T01
+        task_name: "フロントエンドコード修正（ロール別リダイレクト対応含む）"
+        description: "P01-T04で特定されたフロントエンド側の問題を修正する。特に、`auth-context.tsx` や `login-form.tsx` におけるログイン成功後のユーザーロールに基づいた正しいリダイレクト先 (`/admin/dashboard` または `/client/dashboard`) への分岐処理を確実にする。必要に応じて `window.location.href` から `router.push()` への変更も検討する。"
+        responsible_person: FE_Dev
+        start_date: 2025-05-19
+        end_date: 2025-05-19
+        dependencies: ["P01-T04"]
+        deliverables:
+          - "修正済みフロントエンドコード（Pull Request）"
+        relevant_files:
+          - "frontend/components/login-form.tsx"
+          - "frontend/contexts/auth-context.tsx"
+          - "frontend/middleware.ts"
+        status: "未着手"
+      - task_id: P02-T02
+        task_name: "バックエンドコード修正（ロール情報返却確認含む）"
+        description: "P01-T04で特定されたバックエンド側の問題を修正する。ログインAPIが正しいユーザーロール情報（`admin` または `client`）を確実にレスポンスに含めるようにする。"
+        responsible_person: BE_Dev
+        start_date: 2025-05-19
+        end_date: 2025-05-20
+        dependencies: ["P01-T04"]
+        deliverables:
+          - "修正済みバックエンドコード（Pull Request）"
+        relevant_files:
+          - "backend/modules/user/user.controller.ts"
+          - "backend/modules/user/user.service.ts"
+          - "backend/src/app.controller.ts" # /auth/login などのエンドポイントがある場合
+        status: "未着手"
+      - task_id: P02-T03
+        task_name: "コードレビューとマージ"
+        description: "修正されたコードのレビューを行い、問題がなければメインブランチにマージする。"
+        responsible_person: FE_Dev, BE_Dev
+        start_date: 2025-05-20
+        end_date: 2025-05-20
+        dependencies: ["P02-T01", "P02-T02"]
+        deliverables:
+          - "レビュー済み・マージ済みコード"
+        status: "未着手"
+    overall_deliverables:
+      - "ロール別リダイレクト対応済みの修正コードベース"
+
+  - phase_id: P03
+    phase_name: "3. 動作確認とテスト"
+    description: "修正後のシステムで、ロールに応じたログインリダイレクトが正常に動作することを確認する。"
+    start_date: 2025-05-21
+    end_date: 2025-05-22
+    responsible_team: QA Team, Frontend Team, Backend Team
+    tasks:
+      - task_id: P03-T01
+        task_name: "開発環境でのロール別リダイレクト動作確認"
+        description: "開発者がローカル環境または開発サーバーで、管理者アカウント (例: admin@example.com) とクライアントアカウント (例: client@example.com) それぞれでログインし、期待されるリダイレクト先 (`/admin/dashboard` および `/client/dashboard`) に正しく遷移することを確認する。"
+        responsible_person: FE_Dev, BE_Dev
+        start_date: 2025-05-21
+        end_date: 2025-05-21
+        dependencies: ["P02-T03"]
+        deliverables:
+          - "開発環境でのロール別リダイレクト動作確認レポート"
+        status: "未着手"
+      - task_id: P03-T02
+        task_name: "QA環境でのテストケース実行（ロール別リダイレクト含む）"
+        description: "QAテスターが、管理者ログイン時とクライアントログイン時でそれぞれ正しいページにリダイレクトされることを確認するテストケースを実行する。その他の関連機能への影響がないかも確認する。"
+        responsible_person: QA_Tester
+        start_date: 2025-05-21
+        end_date: 2025-05-22
+        dependencies: ["P03-T01"]
+        deliverables:
+          - "QAテスト報告書（ロール別リダイレクトテスト結果含む）"
+          - "発見された不具合リスト（あれば）"
+        relevant_files:
+          - "backend/tests/integration/api-endpoints.spec.ts"
+        status: "未着手"
+      - task_id: P03-T03
+        task_name: "リグレッションテスト"
+        description: "今回の修正が他の機能に悪影響（リグレッション）を及ぼしていないかを確認する。"
+        responsible_person: QA_Tester
+        start_date: 2025-05-22
+        end_date: 2025-05-22
+        dependencies: ["P03-T02"]
+        deliverables:
+          - "リグレッションテスト報告書"
+        status: "未着手"
+    overall_deliverables:
+      - "ロール別ログインリダイレクト問題修正後のテスト完了報告書"
+
+  - phase_id: P04
+    phase_name: "4. リリースと最終確認"
+    description: "修正内容を本番環境（またはステージング環境）にリリースし、最終確認を行う。"
+    start_date: 2025-05-23
+    end_date: 2025-05-23
+    responsible_team: DevOps Team, Frontend Team, Backend Team
+    tasks:
+      - task_id: P04-T01
+        task_name: "修正内容のデプロイ"
+        description: "修正されたコードを適切な環境（ステージングまたは本番）にデプロイする。"
+        responsible_person: DevOps Team
+        start_date: 2025-05-23
+        end_date: 2025-05-23
+        dependencies: ["P03-T03"]
+        deliverables:
+          - "デプロイ完了報告"
+        relevant_files:
+          - "backend/deployment/cloud-build.yaml"
+        status: "未着手"
+      - task_id: P04-T02
+        task_name: "リリース後のロール別リダイレクト動作最終確認"
+        description: "デプロイされた環境で、管理者アカウントとクライアントアカウントでログインし、それぞれ期待通りのページにリダイレクトされることを最終確認する。"
+        responsible_person: QA_Tester, FE_Dev
+        start_date: 2025-05-23
+        end_date: 2025-05-23
+        dependencies: ["P04-T01"]
+        deliverables:
+          - "最終動作確認報告書（ロール別リダイレクト含む）"
+        status: "未着手"
+    overall_deliverables:
+      - "ロール別ログインリダイレクト問題の解決済みシステム"

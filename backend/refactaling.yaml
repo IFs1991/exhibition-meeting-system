@@ -1,0 +1,354 @@
+project_info:
+  project_name: "展示会商談管理システム - バックエンド改善プロジェクト"
+  version: "1.2" # バージョン更新
+  creation_date: "2025-05-18"
+  last_updated_date: "2023-05-22" # 更新日を現在の日付に更新
+  overall_start_date: "2025-05-19"
+  estimated_completion_date: "2025-08-30"
+  project_goal: "バックエンドシステムの保守性、拡張性、パフォーマンスを向上させ、技術的負債を削減する。これにより、将来的な機能追加の迅速化と運用安定性の向上を目指す。"
+  target_llm: "この計画書は、プロジェクト管理支援及びコード生成支援を行うLLMが処理することを想定しています。"
+
+prerequisites:
+  - task_id: "PRQ-001"
+    task_name: "プロジェクトスコープの最終決定：`receipt` 及び `feedback` モジュールの取り扱い定義"
+    description: |
+      本改善プロジェクトの対象範囲を明確化するため、現行システムにおける `receipt`（レセプト関連）および
+      `feedback`（フィードバック関連）モジュールの位置付けを最終決定する。
+      具体的には、これらのモジュールが「展示会商談管理システム」のスコープ内に含まれるのか、
+      あるいは過去の別システム（例：「レセプト理由書アシスタント」）の残存機能であり、本プロジェクトでは
+      削除または段階的廃止の対象となるのかを判断する。
+      この決定は、フェーズ1以降のエンティティ統合、不要ファイル削除、影響範囲評価などのタスクに直接的な影響を与える。
+    responsible_team: "プロジェクトマネージャー, プロダクトオーナー, 開発リード"
+    estimated_duration: "2日間 (開始予定: 2025-05-19, 完了予定: 2025-05-20)"
+    deliverables:
+      - "更新版プロジェクトスコープ定義書：`receipt` および `feedback` モジュールの扱い（維持、改修、削除など）を明記"
+      - "関係者（PO、開発リード）による公式な意思決定議事録または承認記録"
+    status: "完了"
+    priority: "最重要"
+    llm_understanding_notes: |
+      LLMはこのタスクの結果（特にdeliverables）を理解し、後続タスクの relevant_files や description を
+      解釈する際に、`receipt` および `feedback` モジュールがプロジェクトスコープに含まれるか否かを考慮する必要があります。
+
+phases:
+  - phase_id: "P01"
+    phase_name: "フェーズ1：基盤整備と構造統一"
+    description: "バックエンドシステムの開発基盤を整備し、コードベースの構造的一貫性を確立する。具体的には、ディレクトリ構造の標準化、設定管理の一元化、データモデル（エンティティ）の整理・統合、および前提条件タスク(PRQ-001)の結果に基づく不要コードの除去を行う。"
+    start_date: "2025-05-21" # PRQ-001完了後を想定
+    end_date: "2025-06-07" # 約2.5週間
+    responsible_team: "バックエンド開発チーム"
+    status: "完了" # フェーズ全体のステータス
+    tasks:
+      - task_id: "P01-T01"
+        task_name: "ディレクトリ構造の標準化と既存コードの配置見直し"
+        description: |
+          - NestJSの標準的なプロジェクト構造を参考に、`backend/src` をアプリケーションコードのベースディレクトリとして確立する。
+          - 機能モジュールは `src/modules`、共通処理は `src/shared` (または `src/common`)、設定関連は `src/config`、
+            データベース関連（マイグレーション、データソース定義等）は `src/database` に配置する。
+          - 現在 `backend/core` および `backend/services` ディレクトリに存在するファイルを、上記の新しい標準構造に従って適切に移動・再配置する。
+            (例: `backend/services/common/logger.service.ts` -> `src/shared/services/logger.service.ts`)
+        responsible_team: "開発リード"
+        estimated_duration: "3日間"
+        dependencies: ["PRQ-001"] # PRQ-001の結果、削除対象となるモジュールがあれば、それらは移行対象から外れる
+        deliverables:
+          - "標準化されたディレクトリ構造の適用（Gitコミットログで確認可能）"
+          - "ディレクトリ構造に関する簡易的なドキュメント（README.md等での説明）"
+        relevant_files: # 影響範囲または参照する主要ファイル
+          - "backend/src/" # 変更後のルート
+          - "backend/core/" # 移行元
+          - "backend/services/" # 移行元
+        status: "完了"
+        priority: "最高"
+        llm_understanding_notes: "LLMは、このタスクによってファイルのパスが変更されることを理解し、以降のタスクでのファイル参照は新しいパス構造を前提とする必要があります。"
+      - task_id: "P01-T02"
+        task_name: "アプリケーションエントリーポイントとルートモジュールの整理・一本化"
+        description: |
+          - アプリケーションの起動点である `main.ts` を `src/main.ts` に一本化する。
+            （現在 `backend/src/main.ts` と `backend/core/main.ts` が存在する可能性を考慮）
+          - NestJSアプリケーションのルートモジュールである `app.module.ts` を `src/app.module.ts` に一本化する。
+            （現在 `backend/src/app.module.ts` と `backend/core/app.module.ts` が存在する可能性を考慮）
+          - `tsconfig.json` の `baseUrl` や `paths` 設定が、新しいディレクトリ構造と整合性が取れているか確認し、必要であれば修正する。
+        responsible_team: "開発者A"
+        estimated_duration: "2日間"
+        dependencies: ["P01-T01"]
+        deliverables:
+          - "一本化され、`src` ディレクトリ配下に配置された `main.ts`"
+          - "一本化され、`src` ディレクトリ配下に配置された `app.module.ts`"
+          - "更新された `tsconfig.json`（必要な場合）"
+        relevant_files:
+          - "backend/src/main.ts" # 最終的な配置場所
+          - "backend/core/main.ts" # 移行元または削除対象
+          - "backend/src/app.module.ts" # 最終的な配置場所
+          - "backend/core/app.module.ts" # 移行元または削除対象
+          - "backend/tsconfig.json"
+        status: "完了"
+        priority: "最高"
+      - task_id: "P01-T03"
+        task_name: "設定管理システムの一元化と型安全性の強化"
+        description: |
+          - NestJS標準の `@nestjs/config` モジュールを全面的に活用する。
+          - `src/config` ディレクトリを作成し、そこに設定関連のファイルを配置する。
+          - `UnifiedConfigService` (または `AppConfigService` のような名称) を導入し、アプリケーション全体の設定
+            （データベース接続情報、AIサービス設定、JWT設定、ポート番号、環境変数など）を型安全に一元管理する。
+          - 現在 `config/app-config.ts`, `config/ai-service-config.ts`, `src/data-source.ts` に分散している設定情報を
+            新しい設定サービス経由で取得するように、関連するコードをリファクタリングする。
+          - 環境変数ファイル (`.env` など) の管理方法を明確化する。
+        responsible_team: "開発者B"
+        estimated_duration: "4日間"
+        dependencies: ["P01-T01"]
+        deliverables:
+          - "`UnifiedConfigService` (または相当するサービス) の実装とテストコード"
+          - "リファクタリングされた設定参照箇所"
+          - "更新された環境変数テンプレートファイル (`.env.example` など)"
+        relevant_files:
+          - "backend/config/app-config.ts" # 移行元
+          - "backend/config/ai-service-config.ts" # 移行元
+          - "backend/src/data-source.ts" # 移行元
+          - "backend/src/config/" # 新設または更新
+          - "backend/src/app.module.ts" # ConfigModule設定
+        status: "完了"
+        priority: "最高"
+      - task_id: "P01-T04"
+        task_name: "エンティティ定義の統合、一元管理、およびリレーションの整合性確保"
+        description: |
+          - `src/entities` ディレクトリを新設し、全てのTypeORMエンティティ定義をこのディレクトリに集約する。
+            (または、各モジュール配下の `entities` サブディレクトリに配置する方針を明確化し、統一する)
+          - 特に `Client`, `Exhibition`, `User` エンティティについて、複数箇所に存在する定義を単一のファイルに統合する。
+            その際、各定義の差異（プロパティ、リレーションなど）を比較検討し、プロジェクトの正しいデータモデルを反映した最終的な定義を決定する。
+          - PRQ-001の決定に基づき、`ReceiptCase`, `Tag`, `AiInteraction` などのエンティティの扱い（維持、修正、削除）を決定し、対応する。
+          - 全てのエンティティ定義と既存のデータベースマイグレーションファイル (`database/migrations/`) との整合性を確認し、
+            不整合があればマイグレーションファイルを修正または新規作成する。
+          - エンティティ間のリレーション定義（`@OneToMany`, `@ManyToOne`, `@ManyToMany`など）が正しく設定されているか再確認する。
+        responsible_team: "開発リード, 開発者A"
+        estimated_duration: "5日間"
+        dependencies: ["PRQ-001", "P01-T01"]
+        deliverables:
+          - "統合・一元化されたエンティティ定義ファイル群（`src/entities/` または各モジュール配下）"
+          - "エンティティ定義の変更を反映した、または新規作成されたマイグレーションファイル"
+          - "データモデル図（更新版、PlantUMLやMermaidなどで記述可能）"
+        relevant_files:
+          - "backend/modules/admin/entities/" # 統合対象
+          - "backend/modules/client/entities/client.entity.ts" # 統合対象
+          - "backend/modules/exhibition/entities/exhibition.entity.ts" # 統合対象
+          - "backend/modules/admin/exhibition/entities/exhibition.entity.ts" # 統合対象
+          - "backend/modules/user/user.entity.ts" # 確認・配置見直し
+          - "backend/modules/meeting/meeting.entity.ts" # 確認・配置見直し
+          # PRQ-001の結果次第で以下も対象
+          # - "backend/modules/receipt/entities/"
+          # - "backend/modules/feedback/entities/"
+          - "backend/database/migrations/" # 確認・修正対象
+          - "backend/src/data-source.ts" # エンティティパスの更新
+        status: "完了"
+        priority: "最高"
+      - task_id: "P01-T05"
+        task_name: "不要ファイルの削除（PRQ-001の結果およびP01の他タスク結果に基づく）"
+        description: |
+          - PRQ-001の確認結果に基づき、プロジェクトスコープ外と判断されたモジュール
+            （例: `receipt`, `feedback` モジュール群）に関連する全てのファイル
+            （コントローラー, サービス, DTO, エンティティ, リポジトリ, テストコード, モジュール定義ファイル等）をプロジェクトから削除する。
+          - P01-T01 (ディレクトリ構造統一) および P01-T02 (エントリーポイント整理) の結果、
+            古いパスに残り不要となったファイル（例: `backend/core` ディレクトリ内のファイル）を削除する。
+        responsible_team: "開発チーム全体"
+        estimated_duration: "2日間"
+        dependencies: ["PRQ-001", "P01-T04"] # エンティティ統合とスコープ確定後
+        deliverables:
+          - "不要ファイルが削除されたクリーンなコードベース（Gitコミットログで確認可能）"
+          - "削除ファイル一覧（レビュー用）"
+        relevant_files: # 削除対象となる可能性のあるファイル・ディレクトリ
+          # PRQ-001の結果次第で広範囲に及ぶ
+          - "backend/modules/receipt/"
+          - "backend/modules/feedback/"
+          - "backend/core/"
+          - "backend/services/" # P01-T01で移行されなかったファイル
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "P02"
+    phase_name: "フェーズ2：モジュール再編と認証・認可システムの近代化"
+    description: "機能モジュールの責務を明確化し、重複を排除する。認証・認可メカニズムを強化し、RBAC（ロールベースアクセス制御）を導入することで、セキュリティと保守性を向上させる。"
+    start_date: "2025-06-09" # P01完了後を想定
+    end_date: "2025-06-28" # 約3週間
+    responsible_team: "バックエンド開発チーム"
+    status: "完了"
+    tasks:
+      - task_id: "P02-T01"
+        task_name: "重複機能モジュール（Client, Exhibition）の統合と責務の明確化"
+        description: |
+          - 現在 `modules/admin/client` と `modules/client`、および `modules/admin/exhibition` と `modules/exhibition` のように
+            管理者向けと一般向けの機能が物理的に分離されているモジュールを、単一のモジュールに統合する。
+            （例: `src/modules/client`, `src/modules/exhibition`）
+          - 統合後のモジュール内で、コントローラーのメソッドレベルやサービス層のロジックで、
+            ユーザーロールに応じたアクセス制御や機能分岐を行うように変更する（RBACの導入準備）。
+          - 関連するDTO（Data Transfer Object）ファイルも、共通部分と特化部分を考慮して整理・統合する。
+            （例: `CreateClientDto`, `AdminUpdateClientDto` など、必要に応じて特化DTOを維持または作成）
+        responsible_team: "開発者A, 開発者B"
+        estimated_duration: "5日間"
+        dependencies: ["P01-T04"] # エンティティ統合後
+        deliverables:
+          - "統合された `ClientModule` および `ExhibitionModule` のコード"
+          - "整理・統合された関連DTOファイル群"
+          - "モジュール設計に関するドキュメント更新"
+        relevant_files:
+          - "backend/modules/admin/client/" # 統合元
+          - "backend/modules/client/" # 統合先またはベース
+          - "backend/modules/admin/exhibition/" # 統合元
+          - "backend/modules/exhibition/" # 統合先またはベース
+          - "backend/modules/admin/dto/" # 関連DTO
+          - "backend/modules/client/dto/" # 関連DTO
+          - "backend/modules/exhibition/dto/" # 関連DTO
+        status: "完了"
+        priority: "高"
+      - task_id: "P02-T02"
+        task_name: "RBAC（ロールベースアクセス制御）の本格導入"
+        description: |
+          - `UserRole` enum (`backend/modules/user/user.entity.ts` 内に定義想定) の値（例: `admin`, `exhibitor`, `client`）を確認・整備する。
+          - `@Roles(...roles: UserRole[])` のようなカスタムデコレータを作成し、コントローラーのメソッドに付与することで、
+            アクセス可能なロールを指定できるようにする。
+          - `RbacGuard` (または既存の `AuthGuard` を拡張する形) を実装する。このガードは、リクエストユーザーのロールと
+            メソッドに設定された `@Roles` デコレータの情報を比較し、アクセス可否を判断する。
+          - 全ての関連コントローラーメソッド（特にP02-T01で統合されたモジュールのメソッド）に、適切なロール設定を適用する。
+        responsible_team: "開発リード"
+        estimated_duration: "5日間"
+        dependencies: ["P02-T01"]
+        deliverables:
+          - "RBACを実現するためのカスタムデコレータ (`@Roles`) とガード (`RbacGuard`)"
+          - "各コントローラーメソッドに適用されたロールベースのアクセス制御設定"
+          - "RBACの設計と使用方法に関するドキュメント"
+        relevant_files:
+          - "backend/modules/user/user.entity.ts" # UserRole enum定義箇所
+          - "backend/modules/user/guards/auth.guard.ts" # 拡張または参考
+          - "backend/src/shared/guards/" # RbacGuardの配置場所候補
+          - "backend/src/shared/decorators/" # Rolesデコレータの配置場所候補
+          - "backend/modules/**/controllers/*.controller.ts" # ガード適用対象
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "P03"
+    phase_name: "フェーズ3：共通化推進とサービス層の最適化"
+    description: "再利用可能な共通基盤コンポーネント（サービス、リポジトリ、バリデーター等）を作成・導入し、各機能モジュールのサービス層のロジックを最適化・標準化する。また、AIモジュールの実装を整理し、テスト容易性を向上させる。"
+    start_date: "2025-07-01" # P02完了後を想定
+    end_date: "2025-07-26" # 約4週間
+    responsible_team: "バックエンド開発チーム"
+    status: "完了"
+    tasks:
+      - task_id: "P03-T01"
+        task_name: "共通基盤サービスおよびリポジトリパターンの実装と適用"
+        description: |
+          - 汎用的なCRUD操作を提供する `BaseCrudService` (ジェネリクス使用) を `src/shared/services/` に作成する。
+            このベースサービスには、基本的な作成、読み取り、更新、削除メソッドを含める。
+          - 同様に、TypeORMの `Repository<T>` を拡張した `BaseRepository` (ジェネリクス使用) を `src/shared/repositories/` に作成する。
+            これには、IDによるエンティティ検索（存在しない場合は例外スロー）、論理削除（導入する場合）などの共通メソッドを含める。
+          - 各機能モジュール（`ClientService`, `ExhibitionService` など）が `BaseCrudService` を継承し、
+            それぞれのカスタムリポジトリが `BaseRepository` を継承するようにリファクタリングする。
+          - 共通して使用されるバリデーションロジック（例: UUID形式チェック、ページネーションパラメータ検証など）を
+            カスタムバリデーションデコレータとして `src/shared/validators/` に作成し、DTOに適用する。
+        responsible_team: "開発リード, 開発者A"
+        estimated_duration: "7日間"
+        dependencies: ["P02-T01"] # モジュール統合後
+        deliverables:
+          - "実装された `BaseCrudService` および `BaseRepository`"
+          - "共通バリデーションデコレータ群"
+          - "ベースサービス・リポジトリを継承するようにリファクタリングされた各モジュールのサービスクラスとリポジトリクラス"
+        relevant_files:
+          - "backend/src/shared/services/" # 新設
+          - "backend/src/shared/repositories/" # 新設
+          - "backend/src/shared/validators/" # 新設
+          - "backend/modules/**/services/*.service.ts" # リファクタリング対象
+          - "backend/modules/**/repositories/*.repository.ts" # リファクタリング対象
+          - "backend/modules/**/dto/*.dto.ts" # バリデーションデコレータ適用対象
+        status: "完了"
+        priority: "中"
+      - task_id: "P03-T02"
+        task_name: "エラーハンドリング機構の標準化とカスタム例外の導入"
+        description: |
+          - アプリケーション固有の業務エラー（例: リソースが見つからない、バリデーションエラー、権限不足など）を表現するための
+            `BusinessException` (または類似の名称の) カスタム例外クラスを `src/shared/exceptions/` に作成する。
+            この例外クラスは、エラーコード、メッセージ、詳細情報などのプロパティを持つことを検討する。
+          - NestJSの `ExceptionFilter` を実装した `GlobalExceptionFilter` を `src/shared/filters/` に作成し、
+            アプリケーション全体で発生する未捕捉の例外や `HttpException`、`BusinessException` を一元的に処理する。
+            このフィルターは、エラーの種類に応じて標準化されたJSON形式のエラーレスポンスをクライアントに返すようにする。
+          - `src/main.ts` で `GlobalExceptionFilter` をグローバルフィルターとして登録する。
+        responsible_team: "開発者B"
+        estimated_duration: "4日間"
+        dependencies: []
+        deliverables:
+          - "実装された `BusinessException` クラス"
+          - "実装された `GlobalExceptionFilter`"
+          - "標準化されたエラーレスポンス形式の定義ドキュメント"
+          - "エラーハンドリングに関する開発ガイドライン"
+        relevant_files:
+          - "backend/src/shared/exceptions/" # 新設
+          - "backend/src/shared/filters/" # 新設
+          - "backend/src/main.ts" # グローバルフィルター登録箇所
+        status: "完了"
+        priority: "中"
+
+risk_assessment:
+  - risk_id: "R01"
+    description: "エンティティ統合時の既存データとの不整合、またはマイグレーションの失敗。"
+    probability: "中"
+    impact: "高"
+    mitigation: |
+      - 統合前にデータ構造を詳細に分析し、マッピング計画を策定する。
+      - 段階的なマイグレーション戦略を立て、開発環境およびステージング環境で十分にテストを実施する。
+      - データベースのバックアップとリストア手順を確立し、ロールバック計画を準備する。
+  - risk_id: "R02"
+    description: "権限システム変更（RBAC導入）による既存機能への意図しないアクセス制限や許可、またはセキュリティホールの発生。"
+    probability: "中"
+    impact: "高"
+    mitigation: |
+      - 各エンドポイントとユーザーロールの組み合わせに対して、必要な権限を明確に定義し、マトリクス等で文書化する。
+      - 既存のテストケースを見直し、権限周りのテストシナリオを網羅的に追加・強化する（正常系・異常系双方）。
+      - 包括的な回帰テストスイートを実装し、リリース前に全ての権限パターンでのテストを実施する。
+      - コードレビュー時に、権限設定の妥当性を重点的に確認する。
+  - risk_id: "R03"
+    description: "設定管理システムの一元化に伴う、特定環境（開発、ステージング、本番）での設定値の読み込み失敗や設定漏れ、誤設定。"
+    probability: "低"
+    impact: "中"
+    mitigation: |
+      - 全ての環境で使用する環境変数や設定ファイルの内容をリスト化し、バリデーションルールを設けて検証を強化する。
+      - 各環境でのアプリケーション起動テストと、設定値に依存する主要機能の動作確認を徹底する。
+      - 設定ファイルのテンプレート (`.env.example` など) を最新の状態に保ち、開発者間で共有する。
+  - risk_id: "R04"
+    description: "大規模なリファクタリング作業によるデグレード（既存機能のバグ再発や新規バグの混入）。"
+    probability: "中"
+    impact: "高"
+    mitigation: |
+      - リファクタリング対象範囲ごとに詳細なテスト計画を立て、ユニットテストおよび統合テストのカバレッジを可能な限り高める。
+      - コードレビュープロセスを徹底し、変更内容の妥当性、影響範囲、潜在的な問題を複数人で確認する。
+      - CI/CDパイプラインに自動テスト（ユニットテスト、統合テスト）を組み込み、コミットごとに実行して早期に問題を検知する。
+      - リファクタリングは段階的に行い、各ステップでの動作確認を丁寧に行う。
+  - risk_id: "R05"
+    description: "前提条件である「`receipt` および `feedback` モジュールの要否確認」（PRQ-001）の遅延、または判断ミスによる手戻り発生。"
+    probability: "高 (初期段階での明確化が不可欠)"
+    impact: "甚大 (プロジェクトスコープ全体、工数、スケジュールに影響)"
+    mitigation: |
+      - プロジェクト開始後、最優先タスクとして関係者（プロダクトオーナー、開発リード、主要ステークホルダー）間で協議の場を設け、公式な判断を迅速に下す。
+      - 判断結果（維持、改修、削除など）とその理由を明確にドキュメント化し、全開発メンバーに周知徹底する。
+      - 判断が遅れる場合は、その影響を最小限に抑えるため、他の独立したタスク（例: ディレクトリ構造整理の準備、共通ライブラリの調査など）を先行させるなど、プロジェクト計画を柔軟に見直す。
+
+expected_outcomes:
+  short_term: # 1-3ヶ月（フェーズ1、フェーズ2完了時点を想定）
+    - "コードベースの構造が整理され、可読性と理解しやすさが向上する。"
+    - "エンティティ定義と設定管理が一元化され、開発時の混乱や誤りが低減される。"
+    - "重複していたモジュールが統合され、コードの冗長性が削減されることで、保守性が向上する。"
+    - "新しい開発者がプロジェクトに参加する際のオンボーディング時間が短縮される。"
+    - "リファクタリング初期段階では、変更に伴う一時的なバグ発生リスクがあるが、テスト強化により早期発見・修正を目指す。"
+  long_term: # 6ヶ月以上（全フェーズ完了後）
+    - "新機能の開発速度と効率が大幅に向上し、ビジネス要求への対応が迅速化する。"
+    - "システムの拡張性と柔軟性が飛躍的に改善され、将来的な変更や機能追加が容易になる。"
+    - "技術的負債が大幅に削減され、将来的な負債の蓄積も抑制される健全なコードベースが実現する。"
+    - "テストの自動化とカバレッジ向上により、リリースの品質と安定性が向上する。"
+    - "より堅牢でセキュアなシステムアーキテクチャが確立され、運用リスクが低減する。"
+
+notes: |
+  - 本計画書は2025年5月22日時点の情報と分析に基づいて更新されています。
+  - **最重要**: フェーズ1〜3まで実装が完了し、大幅な構造改善とコード品質の向上が実現しました。
+  - 特に重要だった成果は以下の通りです:
+    1. 標準化されたディレクトリ構造と一貫性のあるコード配置
+    2. エンティティ定義の統合と関係性の明確化
+    3. モジュールの責任範囲の明確化と重複コードの排除
+    4. ロールベースアクセス制御（RBAC）の導入によるセキュリティ強化
+    5. 共通基盤サービスとリポジトリパターンの導入による再利用性と保守性の向上
+    6. 標準化されたエラーハンドリング機構による一貫性のあるエラー処理
+  - 引き続き、追加のリファクタリングや機能強化を検討する場合は、このソリッドな基盤を活用することで、より迅速かつ効率的な開発が可能になります。
+

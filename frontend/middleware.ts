@@ -10,16 +10,25 @@ const adminPaths = ['/admin'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // リクエスト情報の詳細なログ出力
   console.log(`[Middleware] Processing path: ${pathname}`);
   console.log(`[Middleware] Cookies:`, {
     auth_token: request.cookies.get('auth_token')?.value ? "存在します" : "存在しません",
-    user_role: request.cookies.get('user_role')?.value
+    user_role: request.cookies.get('user_role')?.value || "未設定",
+    all_cookies: [...request.cookies.getAll()].map(c => `${c.name}=${c.value.substring(0, 10)}...`)
   });
 
   // /client パスへの直接アクセスをダッシュボードにリダイレクト（最優先で処理）
   if (pathname === '/client' || pathname === '/client/') {
     console.log('[Middleware] /client へのアクセスを /client/dashboard にリダイレクト');
     const dashboardUrl = new URL('/client/dashboard', request.url);
+    return NextResponse.redirect(dashboardUrl);
+  }
+
+  // 同様に、/admin パスへの直接アクセスもダッシュボードにリダイレクト
+  if (pathname === '/admin' || pathname === '/admin/') {
+    console.log('[Middleware] /admin へのアクセスを /admin/dashboard にリダイレクト');
+    const dashboardUrl = new URL('/admin/dashboard', request.url);
     return NextResponse.redirect(dashboardUrl);
   }
 
@@ -46,6 +55,7 @@ export function middleware(request: NextRequest) {
     if (!userRole) {
       console.error('[Middleware] ユーザーロールのCookieが見つかりません');
       const url = new URL('/login', request.url);
+      url.searchParams.set('error', 'missing_role');
       return NextResponse.redirect(url);
     }
 
@@ -56,12 +66,20 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/client/dashboard', request.url));
     }
 
+    // クライアント専用パスに管理者がアクセスした場合は許可（管理者は全ての画面にアクセス可能）
+    if (pathname.startsWith('/client') && userRole === 'admin') {
+      console.log(`[Middleware] 管理者がクライアントページにアクセス: Role=${userRole}, Path=${pathname}`);
+      return NextResponse.next();
+    }
+
     console.log(`[Middleware] アクセス許可: Role=${userRole}, Path=${pathname}`);
     return NextResponse.next();
   } catch (error) {
     console.error('[Middleware] エラー:', error);
     // エラーが発生した場合もログインページにリダイレクト
-    return NextResponse.redirect(new URL('/login', request.url));
+    const url = new URL('/login', request.url);
+    url.searchParams.set('error', 'middleware_error');
+    return NextResponse.redirect(url);
   }
 }
 

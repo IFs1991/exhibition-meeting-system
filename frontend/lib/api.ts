@@ -21,8 +21,72 @@ const API_BASE_URL = (() => {
   return '/api';
 })();
 
+// 開発モードでモックAPIを使用するかどうか (バックエンドが起動していない場合)
+const USE_MOCK_API = true;
+
 // URLが正しく設定されているかコンソールに出力（デバッグ用）
 console.log('API_BASE_URL:', API_BASE_URL);
+console.log('モックAPIモード:', USE_MOCK_API ? '有効' : '無効');
+
+// モックデータ
+const mockData = {
+  users: [
+    { id: '1', name: '管理者ユーザー', email: 'admin@example.com', role: 'admin', companyName: 'デモ株式会社' },
+    { id: '2', name: 'クライアントユーザー', email: 'client@example.com', role: 'client', companyName: 'サンプル商事' }
+  ],
+  // 他のモックデータをここに追加できます
+};
+
+// モックAPIレスポンスを返す関数
+function getMockResponse(endpoint: string, options: RequestOptions = {}): any {
+  console.log(`モックAPIリクエスト: ${endpoint}`, options);
+
+  // /auth/login エンドポイント
+  if (endpoint === '/auth/login' && options.method === 'POST') {
+    const { email, password } = options.body || {};
+
+    if (email === 'admin@example.com' && password === 'password123') {
+      return {
+        user: mockData.users[0],
+        token: 'mock-admin-token-12345'
+      };
+    } else if (email === 'client@example.com' && password === 'password123') {
+      return {
+        user: mockData.users[1],
+        token: 'mock-client-token-67890'
+      };
+    } else {
+      throw new Error('メールアドレスまたはパスワードが正しくありません');
+    }
+  }
+
+  // /auth/profile エンドポイント
+  if (endpoint === '/auth/profile') {
+    // Cookie からユーザーロールを取得
+    const userRole = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('user_role='))
+      ?.split('=')[1];
+
+    if (userRole === 'admin') {
+      return { user: mockData.users[0] };
+    } else if (userRole === 'client') {
+      return { user: mockData.users[1] };
+    } else {
+      throw new Error('認証情報が見つかりません');
+    }
+  }
+
+  // /auth/logout エンドポイント
+  if (endpoint === '/auth/logout') {
+    return { success: true };
+  }
+
+  // 他のエンドポイントのモック処理をここに追加できます
+
+  // デフォルトのレスポンス
+  throw new Error(`未実装のモックエンドポイント: ${endpoint}`);
+}
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
@@ -50,6 +114,18 @@ export interface PaginationParams {
  * API呼び出しを行う汎用関数
  */
 async function fetchAPI<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  // モックAPIモードが有効の場合はモックレスポンスを返す
+  if (USE_MOCK_API) {
+    // 非同期処理をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      return getMockResponse(endpoint, options) as T;
+    } catch (error) {
+      console.error('モックAPIエラー:', error);
+      throw error;
+    }
+  }
+
   const {
     method = 'GET',
     headers = {},
