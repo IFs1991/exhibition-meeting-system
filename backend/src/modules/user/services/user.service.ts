@@ -1,118 +1,113 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
-import { User, UserRole } from '../../../entities/user.entity';
-import { UserRepository } from '../repositories/user.repository';
-import { BaseCrudService } from '../../../shared/services/base-crud.service';
-import { CreateUserDto, UpdateUserDto, UserPaginationDto } from '../dto/user.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Profile } from '../../../entities/profile.entity';
+import { UserRole } from '../../../entities/user.entity';
+import { CreateProfileDto, UpdateProfileDto, ProfilePaginationDto } from '../dto/profile.dto';
 
 @Injectable()
-export class UserService extends BaseCrudService<User> {
-  constructor(private readonly userRepository: UserRepository) {
-    super(userRepository);
-    this.entityName = 'User'; // エラーメッセージ用のエンティティ名設定
-  }
+export class UserService {
+  constructor(
+    @InjectRepository(Profile)
+    private readonly profileRepository: Repository<Profile>,
+  ) {}
 
   /**
-   * ユーザーを作成します
-   * @param createUserDto ユーザー作成DTOオブジェクト
-   * @returns 作成されたユーザーオブジェクト（パスワードを除く）
+   * Supabase Authで作成されたユーザーのプロファイルを作成します
+   * @param createProfileDto プロファイル作成DTOオブジェクト
+   * @returns 作成されたプロファイルオブジェクト
    */
-  async createUser(createUserDto: CreateUserDto): Promise<User> {
-    // メールアドレスが既に使われていないか確認
-    const existingUser = await this.userRepository.findByEmail(createUserDto.email);
-    if (existingUser) {
-      throw new BadRequestException('このメールアドレスは既に登録されています');
+  async createProfile(createProfileDto: CreateProfileDto): Promise<Profile> {
+    // IDが既に存在するか確認
+    const existingProfile = await this.profileRepository.findOne({
+      where: { id: createProfileDto.id }
+    });
+
+    if (existingProfile) {
+      throw new BadRequestException('このユーザーIDのプロファイルは既に存在します');
     }
 
-    // パスワードをハッシュ化
-    const hashedPassword = await this.hashPassword(createUserDto.password);
-
-    // ユーザーオブジェクトを作成して保存
-    const newUser = await this.userRepository.create({
-      ...createUserDto,
-      passwordHash: hashedPassword,
-      role: createUserDto.role || UserRole.USER,
+    // プロファイルを作成して保存
+    const newProfile = this.profileRepository.create({
+      ...createProfileDto,
+      role: createProfileDto.role || UserRole.USER,
       isActive: true,
     });
 
-    // パスワードハッシュを削除してから返却
-    const { passwordHash, ...userWithoutPassword } = newUser;
-    return userWithoutPassword as User;
+    return this.profileRepository.save(newProfile);
   }
 
   /**
-   * ユーザー情報を更新します
-   * @param id 更新するユーザーのID
-   * @param updateUserDto ユーザー更新DTOオブジェクト
-   * @returns 更新されたユーザーオブジェクト（パスワードを除く）
+   * プロファイル情報を更新します
+   * @param id 更新するプロファイルのID (Supabase Auth user.id)
+   * @param updateProfileDto プロファイル更新DTOオブジェクト
+   * @returns 更新されたプロファイルオブジェクト
    */
-  async updateUser(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const updatedUser = await this.userRepository.update(id, updateUserDto, 'User');
+  async updateProfile(id: string, updateProfileDto: UpdateProfileDto): Promise<Profile> {
+    const profile = await this.findProfileById(id);
 
-    // パスワードハッシュを削除してから返却
-    const { passwordHash, ...userWithoutPassword } = updatedUser;
-    return userWithoutPassword as User;
-  }
-
-  /**
-   * パスワードを変更します
-   * @param id ユーザーID
-   * @param currentPassword 現在のパスワード
-   * @param newPassword 新しいパスワード
-   * @returns 成功時はtrue
-   */
-  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<boolean> {
-    const user = await this.userRepository.findOneByIdOrFail(id, 'User');
-
-    // 現在のパスワードを検証
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!isPasswordValid) {
-      throw new BadRequestException('現在のパスワードが正しくありません');
+    // 更新前にプロファイルが存在することを確認
+    if (!profile) {
+      throw new NotFoundException(`ID: ${id} のプロファイルが見つかりません`);
     }
 
-    // 新しいパスワードをハッシュ化して保存
-    const hashedPassword = await this.hashPassword(newPassword);
-    await this.userRepository.update(id, { passwordHash: hashedPassword }, 'User');
-
-    return true;
+    // プロファイルを更新
+    this.profileRepository.merge(profile, updateProfileDto);
+    return this.profileRepository.save(profile);
   }
 
   /**
-   * メールアドレスでユーザーを検索します
+   * メールアドレスでプロファイルを検索します
    * @param email 検索するメールアドレス
-   * @returns 検索されたユーザー、見つからない場合はnull
+   * @returns 検索されたプロファイル、見つからない場合はnull
    */
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findByEmail(email);
+  async findByEmail(email: string): Promise<Profile | null> {
+    return this.profileRepository.findOne({ where: { email } });
   }
 
   /**
-   * 複数の条件でユーザーリストを取得します（ページネーション付き）
+   * IDでプロファイルを検索します
+   * @param id 検索するプロファイルID
+   * @returns 検索されたプロファイル、見つからない場合はnull
+   */
+  async findProfileById(id: string): Promise<Profile | null> {
+    return this.profileRepository.findOne({ where: { id } });
+  }
+
+  /**
+   * 複数の条件でプロファイルリストを取得します（ページネーション付き）
    * @param queryParams ページネーションとフィルタリングパラメータ
-   * @returns ページネーション情報付きのユーザーリスト
+   * @returns ページネーション情報付きのプロファイルリスト
    */
-  async findAllWithPagination(queryParams: UserPaginationDto) {
+  async findAllWithPagination(queryParams: ProfilePaginationDto) {
     const { page = 1, limit = 10, role } = queryParams;
-    const conditions = role ? { role } : undefined;
+    const skip = (page - 1) * limit;
 
-    return this.findWithPagination(page, limit, conditions, []);
+    const whereCondition = role ? { role } : {};
+
+    const [profiles, total] = await this.profileRepository.findAndCount({
+      where: whereCondition,
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' }
+    });
+
+    return {
+      data: profiles,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
   }
 
   /**
-   * ユーザーの最終ログイン日時を更新します
-   * @param id ユーザーID
+   * プロファイルの最終ログイン日時を更新します
+   * @param id プロファイルID
    */
   async updateLastLogin(id: string): Promise<void> {
-    await this.userRepository.updateLastLogin(id);
-  }
-
-  /**
-   * パスワードをハッシュ化します
-   * @param password ハッシュ化するパスワード
-   * @returns ハッシュ化されたパスワード
-   */
-  private async hashPassword(password: string): Promise<string> {
-    const salt = await bcrypt.genSalt();
-    return bcrypt.hash(password, salt);
+    await this.profileRepository.update(id, { lastLoginAt: new Date() });
   }
 }

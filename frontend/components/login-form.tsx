@@ -2,41 +2,41 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { useAuth } from "../contexts/auth-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { login, isLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
     try {
-      const response = await login(email, password);
-      // ログイン後のリダイレクト処理
-      // ユーザーロールに基づいて適切なダッシュボードにリダイレクト
-      if (response?.user?.role === "admin") {
-        console.log("管理者としてログイン成功: /admin/dashboard へリダイレクト");
-        router.push("/admin/dashboard");
-      } else if (response?.user?.role === "client") {
-        console.log("クライアントとしてログイン成功: /client/dashboard へリダイレクト");
-        // router.push()メソッドに統一
-        router.push("/client/dashboard");
-      } else {
-        console.error("不明なユーザーロール:", response?.user?.role);
-        // 不明なロールの場合もクライアントダッシュボードへ
-        router.push("/client/dashboard");
-      }
+      await login(email, password);
+      toast({
+        title: "ログインしました",
+        description: "ようこそ！",
+      });
+      router.push("/dashboard");
     } catch (error) {
-      // エラー処理はuseAuthのコンテキスト内で行われるため、ここでは何もしない
-      console.error("ログインエラー:", error);
+      toast({
+        title: "ログインエラー",
+        description: error instanceof Error ? error.message : "ログインに失敗しました",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,6 +57,7 @@ export function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -69,6 +70,7 @@ export function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>

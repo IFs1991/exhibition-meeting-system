@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { LoginForm } from "../../components/login-form"
+import { LoginForm } from "@/components/login-form"
 
 export default function LoginPage() {
   return (

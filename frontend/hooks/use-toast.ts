@@ -192,3 +192,58 @@ function useToast() {
 }
 
 export { useToast, toast }
+
+// APIエラーを処理するヘルパー関数を追加
+export function handleApiError(error: unknown, toast: any) {
+  console.error('API Error:', error);
+
+  if (error instanceof Error) {
+    // 認証関連のエラー
+    if (error.message.includes('認証') || error.message.includes('ログイン') ||
+        error.message.includes('401') || error.message.includes('Unauthorized')) {
+      toast({
+        title: "認証エラー",
+        description: "再ログインが必要です",
+        variant: "destructive",
+      });
+      // ログインページへリダイレクトする必要があるかもしれない
+      return;
+    }
+
+    // 権限関連のエラー
+    if (error.message.includes('権限') || error.message.includes('403') ||
+        error.message.includes('Forbidden')) {
+      toast({
+        title: "アクセス権限エラー",
+        description: "この操作を行う権限がありません",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // バリデーションエラー
+    if (error.message.includes('400') || error.message.includes('validation')) {
+      toast({
+        title: "入力エラー",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // その他のエラー
+    toast({
+      title: "エラーが発生しました",
+      description: error.message,
+      variant: "destructive",
+    });
+    return;
+  }
+
+  // 不明なエラー
+  toast({
+    title: "エラーが発生しました",
+    description: "操作を完了できませんでした",
+    variant: "destructive",
+  });
+}

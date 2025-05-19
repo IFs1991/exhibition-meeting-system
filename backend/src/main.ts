@@ -28,9 +28,32 @@ async function bootstrap() {
   // Swagger設定
   const swaggerConfig = new DocumentBuilder()
     .setTitle('展示会商談管理システム API')
-    .setDescription('展示会商談管理システムのRESTful API仕様書')
+    .setDescription(`
+展示会商談管理システムのRESTful API仕様書
+
+## 認証方法
+
+このAPIはSupabase Authを使用した認証を採用しています。
+
+1. フロントエンドでSupabase Authで認証を行い、JWTを取得します。
+2. 取得したJWTを \`Authorization: Bearer {token}\` 形式でリクエストヘッダーに含めてAPIにアクセスします。
+3. JWTにはユーザーID (\`sub\` クレーム) が含まれており、これによってユーザーを特定します。
+4. ユーザーのロールは、Profileテーブルから取得され、APIのアクセス制御に使用されます。
+
+各エンドポイントには、必要な権限（ロール）が明記されています。
+    `)
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Supabase JWTを入力してください',
+        in: 'header'
+      },
+      'Supabase-JWT', // この値は @ApiBearerAuth() デコレータで参照します
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);

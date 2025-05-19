@@ -1,6 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { User } from './user.entity';
+import { Profile } from './profile.entity';
 import { Exhibition } from './exhibition.entity';
 
 /**
@@ -28,18 +28,18 @@ export class Meeting extends BaseEntity {
   exhibition: Exhibition;
 
   @Column({ type: 'uuid' })
-  organizerId: string; // 出展者のユーザーID
+  organizerId: string; // 出展者のプロファイルID
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Profile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organizer_id' })
-  organizer: User;
+  organizer: Profile;
 
   @Column({ type: 'uuid' })
-  clientId: string; // クライアントのユーザーID
+  clientId: string; // クライアントのプロファイルID
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Profile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'client_id' })
-  client: User;
+  client: Profile;
 
   @Column({ name: 'start_time', type: 'timestamp with time zone' })
   startTime: Date;

@@ -33,7 +33,7 @@ import {
 @ApiTags('users')
 @Controller('users')
 @UseGuards(AuthGuard, RolesGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('Supabase-JWT')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 

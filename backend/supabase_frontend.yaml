@@ -1,0 +1,274 @@
+project_name: "展示会商談管理システム - Supabase移行 (フロントエンド認証・API連携編)"
+version: "1.0"
+creation_date: "2025-05-19"
+last_updated_date: "2025-05-19"
+overall_status: "計画中"
+project_goal: "Next.jsフロントエンドの認証システムをSupabase Authに完全移行し、API連携部分を新しい認証基盤に対応させる。これにより、セキュアで一貫性のあるユーザー体験を提供し、Supabaseの機能を最大限に活用する。"
+
+global_assumptions:
+  - "バックエンドのSupabase移行計画 (`supabase_backend_migration_plan_auth`) のフェーズB-P01からB-P03までが完了し、バックエンドAPIはSupabase AuthのJWTを期待する状態になっている。"
+  - "SupabaseプロジェクトURL (`https://supabase.com/dashboard/project/nhokzbxuicefnslfmrmp`) および関連キー (anonキー, service_roleキー, JWTシークレット) はバックエンド計画に基づき整備済みである。"
+  - "アプリケーションは開発中であり、既存のユーザーデータ、商談データ等の本番データは存在しない。"
+  - "フロントエンドの基本的なディレクトリ構造や主要コンポーネントは現状のものをベースとする。"
+  - "バックエンドで `Profile` エンティティ (または類似のユーザープロファイルテーブル) が `auth.users` と連携して作成・管理されるようになっている。"
+
+migration_target:
+  - component: "フロントエンド認証システム"
+    from: "現行の独自認証コンテキスト (`AuthContext`) およびCookieベースのセッション管理"
+    to: "Supabase Auth および `@supabase/ssr` を利用したセッション管理"
+  - component: "フロントエンドAPIクライアント"
+    from: "現行の `lib/api.ts` におけるカスタム認証ヘッダー処理"
+    to: "Supabaseクライアントライブラリ経由での認証情報付与、またはSupabase DBへの直接アクセス（RLS前提）"
+
+phases:
+  - phase_id: "F-P01"
+    phase_name: "フェーズ1: Supabaseクライアント導入と認証コンテキスト刷新"
+    description: "Next.jsプロジェクトにSupabaseクライアントライブラリを導入・設定し、既存の認証コンテキストをSupabase Authベースで全面的に刷新する。基本的な認証フロー（サインアップ、ログイン、ログアウト）を実装する。"
+    start_date: "2025-06-25"
+    end_date: "2025-07-08"
+    responsible_team: "フロントエンド開発チームリード, 開発者X"
+    status: "進行中"
+    tasks:
+      - task_id: "F-P01-T01"
+        task_name: "Supabaseクライアントライブラリのインストールと設定"
+        description: |
+          - `@supabase/supabase-js` および `@supabase/ssr` パッケージをフロントエンドプロジェクトにインストールする。
+          - SupabaseプロジェクトURLとanonキーを環境変数 (`.env.local`) に設定する。
+          - `frontend/lib/supabase` (または同様のパス) に、`@supabase/ssr` を使用したSupabaseクライアントインスタンスを作成・管理するためのヘルパー関数群を作成する (サーバーコンポーネント用、クライアントコンポーネント用、ルートハンドラ/ミドルウェア用)。
+        responsible_person: "開発者X"
+        estimated_duration: "1日間"
+        dependencies: ["B-P01-T01"]
+        deliverables:
+          - "Supabaseクライアントライブラリが導入された `package.json`"
+          - "Supabase接続情報が設定された `.env.local.example` ファイル"
+          - "Supabaseクライアント初期化用のヘルパーファイル"
+        relevant_files:
+          - "frontend/package.json"
+          - "frontend/.env.local"
+          - "frontend/lib/supabaseUtils.ts"
+        llm_actions:
+          - "`@supabase/ssr` を使用したクライアント初期化ヘルパー関数の基本的なコード例を提示。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "F-P01-T02"
+        task_name: "認証コンテキスト (`AuthContext`) のSupabase Auth対応"
+        description: |
+          - `frontend/contexts/auth-context.tsx` を全面的に書き換える。
+          - Supabaseクライアントを使用し、`supabase.auth.onAuthStateChange` を利用して認証状態の変更をリッスンし、ユーザーセッション情報を管理する。
+          - `user`, `isLoading`, `isAuthenticated` などの状態をSupabaseの認証状態から派生させる。
+          - `login` 関数を `supabase.auth.signInWithPassword` の呼び出しに置き換える。
+          - `register` 関数を `supabase.auth.signUp` の呼び出しに置き換える。この際、Supabaseの `options.data` を使用して、バックエンドで作成される `profiles` テーブルへの初期データ（例: `fullName`, `role`など）の登録を試みる。
+          - `logout` 関数を `supabase.auth.signOut` の呼び出しに置き換える。
+          - `updateProfile` 関数は、Supabaseのユーザーメタデータ更新 (`supabase.auth.updateUser`) と、`profiles` テーブルの更新 (API経由またはSupabaseクライアント経由) を行うように変更。
+          - エラーハンドリングをSupabase Authのエラーオブジェクトに対応させる。
+        responsible_person: "フロントエンド開発チームリード"
+        estimated_duration: "4日間"
+        dependencies: ["F-P01-T01"]
+        deliverables:
+          - "Supabase Authと連携する新しい `AuthContext` の実装"
+          - "関連する型定義の更新 (例: `User` 型)"
+        relevant_files:
+          - "frontend/contexts/auth-context.tsx"
+          - "frontend/lib/supabaseUtils.ts"
+        llm_actions:
+          - "`onAuthStateChange` を使用した認証状態管理の基本的な構造を提示。"
+          - "`signUp` 時に `options.data` を使って `profiles` テーブルにデータを渡す方法の例 (バックエンド側のトリガー設定が必要な点も言及)。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "F-P01-T03"
+        task_name: "ログインフォーム (`LoginForm`) のSupabase Auth対応"
+        description: |
+          - `frontend/components/login-form.tsx` を修正。
+          - `AuthContext` から新しい `login` 関数（Supabaseの `signInWithPassword` をラップしたもの）を呼び出すように変更。
+          - ログイン成功後のリダイレクト処理は、`AuthContext` 内または `LoginForm` 内で、ユーザーのロール (`profiles` テーブルから取得) に基づいて行う。
+          - エラーメッセージ表示をSupabase Authのエラーに対応させる。
+        responsible_person: "開発者X"
+        estimated_duration: "2日間"
+        dependencies: ["F-P01-T02"]
+        deliverables:
+          - "Supabase Authでログイン処理を行う `LoginForm`"
+        relevant_files:
+          - "frontend/components/login-form.tsx"
+          - "frontend/contexts/auth-context.tsx"
+        llm_actions:
+          - "Supabase Authの `signInWithPassword` を使用したログイン処理とエラーハンドリングの例を提示。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "F-P01-T04"
+        task_name: "新規登録ページの実装 (Supabase Auth対応)"
+        description: |
+          - 新規登録ページ (`frontend/app/register/page.tsx` など、必要であれば新規作成) を実装または修正。
+          - `AuthContext` の新しい `register` 関数を呼び出す。
+          - 登録成功後、メール確認が必要な場合はその旨をユーザーに通知するUIを実装。
+        responsible_person: "開発者X"
+        estimated_duration: "2日間"
+        dependencies: ["F-P01-T02"]
+        deliverables:
+          - "Supabase Authでユーザー登録を行う新規登録ページ/フォーム"
+        relevant_files:
+          - "frontend/app/register/page.tsx"
+          - "frontend/contexts/auth-context.tsx"
+        llm_actions:
+          - "Supabase Authの `signUp` を使用したユーザー登録処理の例（メール確認フローを含む）を提示。"
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "F-P02"
+    phase_name: "フェーズ2: ミドルウェアとセッション管理のSupabase対応"
+    description: "Next.jsミドルウェアでの認証チェックをSupabaseセッションベースに移行し、アプリケーション全体のセッション管理を堅牢にする。"
+    start_date: "2025-07-09"
+    end_date: "2025-07-15"
+    responsible_team: "フロントエンド開発チームリード"
+    status: "進行中"
+    tasks:
+      - task_id: "F-P02-T01"
+        task_name: "Next.jsミドルウェア (`middleware.ts`) のSupabaseセッション対応"
+        description: |
+          - `frontend/middleware.ts` を修正。
+          - `@supabase/ssr` の `createMiddlewareClient` を使用してリクエスト/レスポンスオブジェクトからSupabaseクライアントを作成する。
+          - `supabase.auth.getSession()` を使用して現在のユーザーセッションを取得する。
+          - セッションの有無、およびセッション内のユーザー情報 (必要であれば `profiles` テーブルと連携してロールも取得) に基づいて、保護ルートへのアクセス制御を行う。
+          - 既存のCookieベースの認証情報 (`auth_token`, `user_role`) の読み取り処理を削除する。
+          - リダイレクトロジックを新しい認証状態に基づいて更新する。
+        responsible_person: "フロントエンド開発チームリード"
+        estimated_duration: "3日間"
+        dependencies: ["F-P01-T01"]
+        deliverables:
+          - "Supabaseセッションを使用して認証チェックを行う更新された `middleware.ts`"
+        relevant_files:
+          - "frontend/middleware.ts"
+          - "frontend/lib/supabaseUtils.ts"
+        llm_actions:
+          - "`@supabase/ssr` を使用したミドルウェアでの認証チェックとルート保護の具体的なコード例を提示。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "F-P02-T02"
+        task_name: "レイアウトコンポーネント (`ClientLayout`, `AdminLayout`) での認証状態表示の更新"
+        description: |
+          - `frontend/components/client-layout.tsx` および `frontend/components/admin-layout.tsx` を修正。
+          - `AuthContext` (Supabase対応版) からユーザー情報（名前、会社名、ロールなど）を取得し、ヘッダー等に表示する。
+          - 認証状態（ローディング中、未認証、認証済み）に応じた表示切り替えを適切に行う。
+        responsible_person: "開発者X"
+        estimated_duration: "2日間"
+        dependencies: ["F-P01-T02"]
+        deliverables:
+          - "Supabase認証情報に基づいてユーザー情報を表示する更新されたレイアウトコンポーネント"
+        relevant_files:
+          - "frontend/components/client-layout.tsx"
+          - "frontend/components/admin-layout.tsx"
+          - "frontend/contexts/auth-context.tsx"
+        llm_actions:
+          - "新しい `AuthContext` からユーザー情報を取得し、UIに表示するReactコンポーネントの例を提示。"
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "F-P03"
+    phase_name: "フェーズ3: API連携とデータアクセスのSupabase対応"
+    description: "バックエンドAPIへのリクエスト時の認証ヘッダー処理をSupabaseのアクセストークンに対応させる。また、可能な範囲でSupabaseクライアントライブラリを通じたデータベースへの直接アクセス（RLS活用）を検討・実装する。"
+    start_date: "2025-07-16"
+    end_date: "2025-07-29"
+    responsible_team: "フロントエンド開発チームリード, 開発者X"
+    status: "進行中"
+    tasks:
+      - task_id: "F-P03-T01"
+        task_name: "APIクライアント (`lib/api.ts`) の認証ヘッダー処理更新"
+        description: |
+          - `frontend/lib/api.ts` の `fetchAPI` 関数または各API呼び出し箇所を修正。
+          - NestJSバックエンドへのリクエスト時に、`Authorization` ヘッダーに `Bearer ${supabaseAccessToken}` を含めるようにする。
+          - `supabaseAccessToken` は `supabase.auth.getSession()` を通じて取得する。
+          - モックAPI (`USE_MOCK_API`) を使用している場合の認証処理も適宜見直すか、Supabase連携を前提としたテストに切り替える。
+        responsible_person: "開発者X"
+        estimated_duration: "3日間"
+        dependencies: ["F-P01-T01", "B-P02-T01"]
+        deliverables:
+          - "Supabaseアクセストークンを使用して認証を行う更新された `lib/api.ts` または関連API呼び出し箇所"
+        relevant_files:
+          - "frontend/lib/api.ts"
+          - "frontend/lib/supabaseUtils.ts"
+        llm_actions:
+          - "`fetchAPI` 関数内でSupabaseのアクセストークンを取得し、リクエストヘッダーに設定するコード例を提示。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "F-P03-T02"
+        task_name: "ユーザープロファイル関連機能のSupabase対応"
+        description: |
+          - `frontend/app/client/settings/page.tsx` など、ユーザープロファイル情報を表示・更新するページを修正。
+          - `AuthContext` を通じて取得したユーザーIDとSupabaseクライアントを使用し、`profiles` テーブルから詳細なプロファイル情報を取得・表示する。
+          - プロファイル更新処理も、Supabaseクライアント経由で `profiles` テーブルを更新するか、バックエンドAPI経由（更新された認証付き）で行う。
+          - `frontend/contexts/company-context.tsx` がユーザー情報に依存している場合、その連携も見直す。
+        responsible_person: "フロントエンド開発チームリード"
+        estimated_duration: "4日間"
+        dependencies: ["F-P01-T02", "B-P01-T03"]
+        deliverables:
+          - "Supabaseと連携してユーザープロファイルを表示・更新する機能"
+        relevant_files:
+          - "frontend/app/client/settings/page.tsx"
+          - "frontend/contexts/auth-context.tsx"
+          - "frontend/contexts/company-context.tsx"
+          - "frontend/lib/supabaseUtils.ts"
+        llm_actions:
+          - "Supabaseクライアントを使用して `profiles` テーブルからユーザー固有の情報を取得・更新するReactコンポーネントの例を提示。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "F-P03-T03"
+        task_name: "(オプション) 一部データ取得のSupabaseクライアント直接呼び出しへの移行検討"
+        description: |
+          - 現在 `lib/api.ts` 経由でNestJSバックエンドから取得しているデータのうち、単純なCRUD操作で、かつRLSで適切な権限制御が可能なものについて、Supabaseクライアントライブラリを使ってフロントエンドから直接Supabaseデータベースにアクセスする方法を検討・実装する。
+          - 例えば、展示会一覧、クライアント一覧などの参照系APIが候補。
+          - これにより、一部APIのバックエンド依存をなくし、表示速度の向上やバックエンド負荷軽減が期待できる。
+        responsible_person: "フロントエンド開発チームリード"
+        estimated_duration: "3日間"
+        dependencies: ["B-P01-T02"]
+        deliverables:
+          - "Supabaseクライアント直接呼び出しに移行されたデータ取得処理（該当箇所のみ）"
+          - "移行判断に関するドキュメント（メリット・デメリット比較など）"
+        relevant_files:
+          - "frontend/lib/api.ts"
+          - "frontend/app/admin/exhibitions/page.tsx"
+          - "frontend/app/admin/clients/page.tsx"
+        llm_actions:
+          - "フロントエンドからSupabase DBを直接操作する際のRLS設定の重要性と、基本的なクエリ例を提示。"
+        status: "完了"
+        priority: "中"
+
+  - phase_id: "F-P04"
+    phase_name: "フェーズ4: テストとデプロイ"
+    description: "認証フローのE2Eテストの実装と、本番環境へのデプロイ準備"
+    start_date: "2025-07-30"
+    end_date: "2025-08-05"
+    status: "進行中"
+    tasks:
+      - task_id: "F-P04-T01"
+        task_name: "認証フローのE2Eテスト実装"
+        description: "ログイン、ログアウト、プロファイル更新などの認証フローのテストを実装"
+        status: "完了"
+        priority: "高"
+        assignee: "フロントエンド開発チームリード"
+      - task_id: "F-P04-T02"
+        task_name: "APIクライアントのテスト実装"
+        description: "認証ヘッダーの設定やAPIエンドポイントの動作確認のテストを実装"
+        status: "完了"
+        priority: "高"
+        assignee: "フロントエンド開発チームリード"
+      - task_id: "F-P04-T03"
+        task_name: "本番環境へのデプロイ準備"
+        description: "環境変数の設定やデプロイスクリプトの準備"
+        status: "未着手"
+        priority: "中"
+        assignee: "インフラチームリード"
+
+# 備考:
+# - 本計画の開始日は、バックエンド改修計画 (supabase_backend_migration_plan_auth) の完了予定日 (2025-06-24) の翌日としています。
+# - バックエンドAPIの仕様変更 (特に認証ヘッダーやエンドポイントの変更) がフロントエンド改修の前提となるため、バックエンドチームとの密な連携が不可欠です。
+# - タスクの期間や担当者は目安であり、プロジェクトの状況に応じて柔軟に調整してください。
+#
+# この計画書は、バックエンドのSupabase Auth移行が完了した後のフロントエンド改修作業に焦点を当てています。
+# バックエンドチームとの連携を密に取りながら、各フェーズ、各タスクを進めていくことが重要です。
+
+# ご不明な点や修正のご要望がございましたら、お気軽にお申し付けください。

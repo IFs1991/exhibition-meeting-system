@@ -25,27 +25,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
+import { useToast, handleApiError } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { exhibitionAPI } from "@/lib/api"
+import { getAllExhibitions, Exhibition } from '@/lib/supabase/queries'
+import { exhibitionAPI } from '@/lib/api'
 import { OptimizedDataTable } from "@/components/optimized-data-table"
 import { formatDate } from "@/lib/utils"
-
-// 展示会データの型定義
-interface Exhibition {
-  id: string
-  name: string
-  venue: string
-  startDate: string
-  endDate: string
-  status: "planning" | "active" | "completed" | "canceled"
-  currentAttendees: number
-  maxAttendees: number
-  organizerName: string
-}
 
 export default function ExhibitionsPage() {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([])
@@ -61,23 +49,35 @@ export default function ExhibitionsPage() {
     const fetchExhibitions = async () => {
       try {
         setIsLoading(true)
-        const response = await exhibitionAPI.getAll()
-        setExhibitions(response.exhibitions)
-        setFilteredExhibitions(response.exhibitions)
-      } catch (error) {
-        console.error("展示会取得エラー:", error)
-        toast({
-          title: "エラーが発生しました",
-          description: "展示会情報の取得に失敗しました。",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
 
-    fetchExhibitions()
-  }, [toast])
+        // データソースを両方試す
+        let exhibitionData: Exhibition[] = [];
+
+        try {
+          // 1. まずSupabaseから直接取得を試みる (RLSで保護)
+          exhibitionData = await getAllExhibitions();
+          console.log('Supabaseから取得した展示会データ:', exhibitionData.length);
+        } catch (supabaseError) {
+          console.warn('Supabaseからの取得に失敗、APIにフォールバック:', supabaseError);
+
+          // 2. Supabaseからの取得に失敗した場合、バックエンドAPIから取得
+          const apiResponse = await exhibitionAPI.getAll();
+          exhibitionData = apiResponse.exhibitions as unknown as Exhibition[];
+          console.log('APIから取得した展示会データ:', exhibitionData.length);
+        }
+
+        setExhibitions(exhibitionData);
+        setFilteredExhibitions(exhibitionData);
+      } catch (error) {
+        console.error("展示会取得エラー:", error);
+        handleApiError(error, toast);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchExhibitions();
+  }, [toast]);
 
   // 検索とフィルタリング
   useEffect(() => {
@@ -94,8 +94,8 @@ export default function ExhibitionsPage() {
       filtered = filtered.filter(
         exhibition =>
           exhibition.name.toLowerCase().includes(lowerCaseQuery) ||
-          exhibition.venue.toLowerCase().includes(lowerCaseQuery) ||
-          exhibition.organizerName.toLowerCase().includes(lowerCaseQuery)
+          (exhibition.venue?.toLowerCase() || '').includes(lowerCaseQuery) ||
+          (exhibition.organizerName?.toLowerCase() || '').includes(lowerCaseQuery)
       )
     }
 
@@ -130,6 +130,7 @@ export default function ExhibitionsPage() {
     {
       header: "会場",
       accessorKey: "venue",
+      cell: (info: any) => info.getValue() || '',
     },
     {
       header: "開催期間",

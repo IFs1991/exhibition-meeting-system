@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useMobile } from "@/hooks/use-mobile"
 import { useCompany } from "@/contexts/company-context"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAuth } from '@/contexts/auth-context'
 
 interface ClientLayoutProps {
   children: React.ReactNode
@@ -27,6 +28,8 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
   // CompanyContextから会社情報と展示会情報を取得
   const { companyInfo, activeExhibition, isLoading } = useCompany()
+
+  const { user, logout, isLoading: authLoading } = useAuth()
 
   const navigation = useMemo(
     () => [
@@ -60,14 +63,22 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
     [pathname],
   )
 
-  const handleLogout = useCallback(() => {
-    // 実際の実装ではログアウト処理を行う
-    toast({
-      title: "ログアウト成功",
-      description: "ログアウトしました",
-    })
-    router.push("/")
-  }, [toast, router])
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast({
+        title: 'ログアウトしました',
+        description: 'またのご利用をお待ちしております',
+      })
+      router.push('/login')
+    } catch (error) {
+      toast({
+        title: 'ログアウトエラー',
+        description: error instanceof Error ? error.message : 'ログアウトに失敗しました',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const handleOpenChange = useCallback((open: boolean) => {
     setOpen(open)
@@ -115,6 +126,15 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
     ),
     [navigation],
   )
+
+  if (authLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (!user) {
+    router.push('/login')
+    return null
+  }
 
   return (
     <div className="flex h-screen bg-slate-50">

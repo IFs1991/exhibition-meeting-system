@@ -12,19 +12,8 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
-import { clientAPI } from "@/lib/api"
+import { getAllClients, Client } from '@/lib/supabase/queries'
 import { OptimizedDataTable } from "@/components/optimized-data-table"
-
-// クライアントデータの型定義
-interface Client {
-  id: string
-  name: string
-  email: string
-  companyName: string
-  phone: string
-  address: string
-  createdAt: string
-}
 
 // 展示会データの型定義
 interface Exhibition {
@@ -45,9 +34,9 @@ export default function ClientsPage() {
     const fetchClients = async () => {
       try {
         setIsLoading(true)
-        const response = await clientAPI.getAll()
-        setClients(response.clients)
-        setFilteredClients(response.clients)
+        const clients = await getAllClients()
+        setClients(clients)
+        setFilteredClients(clients)
       } catch (error) {
         console.error("クライアント取得エラー:", error)
         toast({

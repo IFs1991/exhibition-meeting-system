@@ -1,0 +1,309 @@
+project_name: "展示会商談管理システム - Supabase移行 (バックエンド認証編)"
+version: "1.0"
+creation_date: "2025-05-19" # 本日時点
+last_updated_date: "2025-06-24" # フェーズ3完了日
+overall_status: "完了"
+project_goal: "NestJSバックエンドの認証システムをSupabase Authに移行し、データベース接続先をSupabaseに変更する。これにより、セキュアでスケーラブルな認証基盤を確立し、今後の開発効率を向上させる。"
+
+global_assumptions:
+  - "既存の `refactaling.yaml` および `conect.yaml` に記載されたリファクタリングタスクは全て完了済みである。"
+  - "アプリケーションは開発中であり、既存のユーザーデータ、商談データ等の本番データは存在しない。"
+  - "フロントエンド (Next.js) は別途Supabase Authに対応する改修が行われることを前提とするが、本計画の主スコープはバックエンドの改修とする。"
+  - "Supabaseプロジェクトは既に作成済み、または本計画の初期段階で作成される。"
+  - "バックエンドの基本的なディレクトリ構造は `refactaling.yaml` に基づき整理済みである (`src/modules`, `src/shared`, `src/config`, `src/database`, `src/entities` など)。"
+  - "PRQ-001 (`receipt` および `feedback` モジュールの取り扱い定義) の結果、これらのモジュールがスコープ外であれば、本計画での直接的な改修対象としない。ただし、Userエンティティ等で間接的な影響があれば考慮する。"
+
+migration_target:
+  - component: "認証システム"
+    from: "現行のNestJS + JWTベースの独自認証"
+    to: "Supabase Auth"
+  - component: "データベース"
+    from: "現行のPostgreSQL (TypeORM)"
+    to: "Supabase PostgreSQL (TypeORMは継続利用)"
+
+phases:
+  - phase_id: "B-P01"
+    phase_name: "フェーズ1: Supabase連携基盤構築とエンティティ再定義"
+    description: "Supabaseプロジェクトの基本設定を行い、NestJSバックエンドからSupabaseデータベースへの接続を確立する。Supabase Authの導入に伴い、ユーザー関連エンティティを再定義または新規作成する。"
+    start_date: "2025-05-20" # 明日から開始を想定
+    end_date: "2025-05-27" # 約1週間
+    responsible_team: "バックエンド開発チームリード, 開発者A"
+    status: "完了"
+    tasks:
+      - task_id: "B-P01-T01"
+        task_name: "Supabaseプロジェクト設定と環境変数整備"
+        description: |
+          - Supabaseプロジェクトでメール/パスワード認証を有効化。
+          - 認証関連のメールテンプレート（アカウント確認、パスワードリセット等）の基本設定。
+          - SupabaseプロジェクトURL、anonキー、service_roleキー（バックエンド用）、JWTシークレットを環境変数として整備する。
+          - `src/config/unified-config.service.ts` にSupabase関連の環境変数を追加し、型安全に読み込めるようにする。
+            (例: `supabaseUrl`, `supabaseAnonKey`, `supabaseServiceRoleKey`, `supabaseJwtSecret`)
+        responsible_person: "開発チームリード"
+        estimated_duration: "1日間"
+        dependencies: []
+        deliverables:
+          - "設定済みのSupabaseプロジェクト（認証設定）"
+          - "更新された `.env.example` ファイル"
+          - "Supabase関連の設定値が追加された `UnifiedConfigService`"
+        relevant_files:
+          - "backend/src/config/unified-config.service.ts"
+          - ".env.example"
+        llm_actions:
+          - "`UnifiedConfigService` にSupabase関連のプロパティとバリデーションを追加するコードを生成支援。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "B-P01-T02"
+        task_name: "データベース接続設定のSupabaseへの切り替え"
+        description: |
+          - `src/config/unified-config.service.ts` の `getTypeOrmConfig()` メソッドを修正し、SupabaseのPostgreSQLデータベース接続情報を使用するように変更する。
+          - `src/database/data-source.ts` が新しい設定情報を参照するように確認・修正する。
+          - NestJSアプリケーションがSupabaseデータベースに正常に接続できることを確認する。
+        responsible_person: "開発者A"
+        estimated_duration: "1日間"
+        dependencies: ["B-P01-T01"]
+        deliverables:
+          - "Supabaseデータベースに接続可能なTypeORM設定"
+          - "接続確認ログまたはテスト"
+        relevant_files:
+          - "backend/src/config/unified-config.service.ts"
+          - "backend/src/database/data-source.ts"
+          - "backend/src/app.module.ts" # TypeOrmModule設定箇所
+        llm_actions:
+          - "Supabaseの接続文字列形式に合わせた `getTypeOrmConfig()` の修正案を提示。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "B-P01-T03"
+        task_name: "ユーザー関連エンティティの再定義 (`profiles` テーブル導入)"
+        description: |
+          - Supabase Authの `auth.users` テーブルと連携するための新しいエンティティ `Profile` を `src/entities/profile.entity.ts` に作成する。
+          - `Profile` エンティティは、`id` カラム (UUID型、`auth.users.id` への外部キーとして機能)、および既存の `User` エンティティ (`src/entities/user.entity.ts`) に定義されているアプリケーション固有のフィールド（例: `fullName`, `companyName`, `clinicName`, `phoneNumber`, `address`, `role`, `isActive`, `lastLoginAt` など）を保持する。
+          - 既存の `User` エンティティは `Profile` エンティティに置き換えるか、役割を明確に分離する。本計画では `Profile` に統合・移行する方針を推奨。
+          - `UserRole` enum は `src/entities/user.entity.ts` (または `src/entities/profile.entity.ts`) に維持する。
+          - 新しい `Profile` エンティティに対応するデータベースマイグレーションファイルを作成する。
+            (ユーザーデータは空なので、既存 `users` テーブルの削除と新規 `profiles` テーブル作成のマイグレーション)
+        responsible_person: "開発者A"
+        estimated_duration: "3日間"
+        dependencies: ["B-P01-T02"]
+        deliverables:
+          - "`Profile` エンティティ定義ファイル (`profile.entity.ts`)"
+          - "更新された `UserRole` enum (必要であれば)"
+          - "新しいデータベーススキーマを反映するマイグレーションファイル"
+          - "（オプション）更新されたデータモデル図"
+        relevant_files:
+          - "backend/src/entities/user.entity.ts" # 参照・移行元
+          - "backend/src/entities/profile.entity.ts" # 新規作成
+          - "backend/database/migrations/" # 新規マイグレーションファイル
+        llm_actions:
+          - "`Profile` エンティティのTypeORM定義コードを生成支援。`id` は `auth.users.id` を参照することをコメントで明記。"
+          - "既存 `User` エンティティから `Profile` エンティティへのフィールド移行案を提示。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "B-P01-T04"
+        task_name: "他エンティティのユーザー関連リレーション更新"
+        description: |
+          - `Meeting` エンティティ (`src/entities/meeting.entity.ts`) など、ユーザーIDを外部キーとして参照している他のエンティティのリレーション定義を、新しい `Profile` エンティティ (またはそのID) を参照するように更新する。
+          - 関連するマイグレーションファイルがあれば修正、なければ新規作成する。
+        responsible_person: "開発者A"
+        estimated_duration: "2日間"
+        dependencies: ["B-P01-T03"]
+        deliverables:
+          - "更新された関連エンティティの定義ファイル"
+          - "関連するマイグレーションファイルの修正または新規作成"
+        relevant_files:
+          - "backend/src/entities/meeting.entity.ts"
+          # 他にユーザーIDを参照しているエンティティがあればそれらも対象
+        llm_actions:
+          - "TypeORMのリレーション定義変更の具体例を提示。"
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "B-P02"
+    phase_name: "フェーズ2: NestJS認証ロジックのSupabase Auth対応"
+    description: "NestJSバックエンドの認証・認可ロジックを、Supabase Authを認証プロバイダーとして利用するように全面的に改修する。"
+    start_date: "2025-05-28"
+    end_date: "2025-06-10" # 約2週間
+    responsible_team: "バックエンド開発チームリード, 開発者B"
+    status: "完了"
+    tasks:
+      - task_id: "B-P02-T01"
+        task_name: "認証ガード (`AuthGuard`) のSupabase JWT検証への変更"
+        description: |
+          - `src/shared/guards/auth.guard.ts` を修正。
+          - リクエストヘッダーから `Authorization: Bearer <SUPABASE_JWT>` を抽出し、トークンを検証する。
+          - 検証には、SupabaseプロジェクトのJWTシークレット (`src/config/unified-config.service.ts` から取得) を使用する。
+          - NestJSの `@nestjs/jwt` の `JwtService` を引き続き利用してトークン検証を行う。
+          - 検証成功後、JWTペイロードからユーザーID (`sub` クレーム) を取得し、`request.user = { id: userIdFromSupabase, ...otherClaims }` のようにリクエストオブジェクトに格納する。
+            この際、ペイロードにロール情報が含まれていればそれも格納する（カスタムクレーム利用時）。
+        responsible_person: "開発者B"
+        estimated_duration: "3日間"
+        dependencies: ["B-P01-T01"]
+        deliverables:
+          - "Supabase JWTを検証する `AuthGuard` の実装"
+          - "関連するユニットテスト"
+        relevant_files:
+          - "backend/src/shared/guards/auth.guard.ts"
+          - "backend/src/config/unified-config.service.ts" # JWTシークレット取得
+          - "backend/src/modules/user/user.module.ts" # JwtModuleの設定確認
+        llm_actions:
+          - "`AuthGuard` でSupabase JWTを検証し、ユーザー情報をリクエストにアタッチするコードスニペットを生成。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "B-P02-T02"
+        task_name: "ロールベースアクセス制御ガード (`RolesGuard`) の改修"
+        description: |
+          - `src/shared/guards/roles.guard.ts` を修正。
+          - `request.user` に格納されたユーザーIDを基に、`Profile` テーブル（B-P01-T03で定義）からユーザーのロール情報を取得する。
+          - 取得したロールと、コントローラーメソッドに `@Roles()` デコレータで指定された要求ロールを比較し、アクセス可否を判断する。
+          - もしSupabase JWTのカスタムクレームにロール情報を含める戦略を取る場合は、`request.user` から直接ロール情報を読み取る。
+        responsible_person: "開発者B"
+        estimated_duration: "3日間"
+        dependencies: ["B-P01-T03", "B-P02-T01"]
+        deliverables:
+          - "Supabaseユーザー情報と連携する `RolesGuard` の実装"
+          - "関連するユニットテスト"
+        relevant_files:
+          - "backend/src/shared/guards/roles.guard.ts"
+          - "backend/src/entities/profile.entity.ts" # ロール情報を持つエンティティ
+          - "backend/src/modules/user/services/user.service.ts" # Profile情報取得ロジックの追加が必要な場合
+        llm_actions:
+          - "`RolesGuard` が `Profile` テーブルまたはJWTカスタムクレームからロールを取得し、アクセス制御を行うロジックの提案。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "B-P02-T03"
+        task_name: "`AuthService` および `UserService` の認証関連ロジック削除・簡略化"
+        description: |
+          - `src/modules/user/services/auth.service.ts`:
+            - `login` メソッド: Supabase Authに処理を委譲するため、このメソッドは不要となるか、フロントエンドからのコールを受け付けない形に変更。
+            - `validateUser` メソッド: 同様に不要。
+            - `getUserFromToken` メソッド: `AuthGuard` で処理されるため、直接的な利用は減るが、必要に応じて残すか検討。
+          - `src/modules/user/services/user.service.ts`:
+            - `createUser`: Supabase Auth でユーザー作成後、対応する `Profile` レコードを作成するロジックに変更（トリガー等で自動化も検討）。パスワードハッシュ化処理は削除。
+            - `changePassword`: Supabase Authのパスワード変更機能に委譲するため、このメソッドは不要となるか、Supabase Admin SDK経由で操作する形に変更。
+            - `findByEmail`: `Profile` テーブルを検索するように変更。
+            - `updateLastLogin`: `Profile` テーブルの最終ログイン日時を更新するように変更。
+          - 主な責務は、`Profile`エンティティのCRUD操作と、アプリケーション固有のユーザー関連ビジネスロジックに集中する。
+        responsible_person: "開発チームリード"
+        estimated_duration: "4日間"
+        dependencies: ["B-P02-T01", "B-P02-T02"]
+        deliverables:
+          - "Supabase Auth移行に伴いスリム化された `AuthService` および `UserService`"
+          - "`Profile` エンティティのCRUD操作を含む `UserService` の更新版"
+          - "関連するユニットテストの修正・追加"
+        relevant_files:
+          - "backend/src/modules/user/services/auth.service.ts"
+          - "backend/src/modules/user/services/user.service.ts"
+          - "backend/src/modules/user/repositories/user.repository.ts" # ProfileRepositoryに変更または新設
+        llm_actions:
+          - "Supabase Auth利用を前提とした `UserService` の `createUser` (Profile作成) や `updateProfile` の実装例を提示。"
+          - "不要となる `AuthService` のメソッドと、その理由を明記。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "B-P02-T04"
+        task_name: "認証関連APIエンドポイント (`AuthController`) の見直し"
+        description: |
+          - `src/modules/user/controllers/auth.controller.ts` 内のエンドポイントを見直す。
+          - `/auth/login`: フロントエンドが直接Supabase Authと通信するため、このエンドポイントは原則不要。
+          - `/auth/register`: 同様に、フロントエンドが直接Supabase Authと通信。ただし、登録後にバックエンドで追加処理（例: Profile作成のトリガーが設定されていない場合など）が必要な場合は、そのためのエンドポイントを別途用意するか、Supabase FunctionsのAuthトリガーを利用する。
+          - `/auth/profile`: `AuthGuard`で保護され、認証済みユーザーのプロファイル情報を返す。これは `UserController` に移管または維持。
+        responsible_person: "開発者B"
+        estimated_duration: "2日間"
+        dependencies: ["B-P02-T03"]
+        deliverables:
+          - "役割が変更または削除された `AuthController`"
+          - "関連するAPIドキュメントの更新"
+        relevant_files:
+          - "backend/src/modules/user/controllers/auth.controller.ts"
+          - "backend/src/modules/user/controllers/user.controller.ts"
+        llm_actions:
+          - "Supabase Auth移行後の `AuthController` の典型的な構成（不要なエンドポイントの削除など）を提案。"
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "B-P03"
+    phase_name: "フェーズ3: 動作確認とテスト、ドキュメント整備"
+    description: "Supabase Authとの連携を含めたバックエンド全体の動作確認、単体テスト・結合テストの実施、および関連ドキュメントの更新を行う。"
+    start_date: "2025-06-11"
+    end_date: "2025-06-24" # 約2週間
+    responsible_team: "バックエンド開発チーム, QAチーム"
+    status: "完了"
+    tasks:
+      - task_id: "B-P03-T01"
+        task_name: "認証・認可フローの結合テスト"
+        description: |
+          - フロントエンドがSupabase Authで認証後、発行されたJWTを使ってNestJSバックエンドの保護されたAPIにアクセスできることを確認する。
+          - 各APIエンドポイントが、設定されたロール（`@Roles`）に基づいて正しくアクセス制御されることをテストする。
+            - 許可されるべきロールでのアクセス成功。
+            - 許可されないロールでのアクセス拒否 (403 Forbidden)。
+            - 未認証アクセスでの拒否 (401 Unauthorized)。
+          - テストケースには、管理者、出展者、クライアントなど、定義されている全ロールの組み合わせを含む。
+        responsible_person: "QAチーム, 開発者B"
+        estimated_duration: "5日間"
+        dependencies: ["B-P02-T04"]
+        deliverables:
+          - "認証・認可フローのテスト報告書"
+          - "発見された不具合の修正"
+        relevant_files:
+          - "backend/tests/integration/api-endpoints.spec.ts" # 既存テストの修正・拡充
+          - "backend/src/shared/guards/auth.guard.ts"
+          - "backend/src/shared/guards/roles.guard.ts"
+        llm_actions:
+          - "Supabase Auth連携後のNestJS APIに対する典型的な結合テストシナリオ（正常系・異常系）を提示。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "B-P03-T02"
+        task_name: "既存機能の回帰テスト"
+        description: |
+          - 認証基盤の変更に伴い、既存のクライアント管理、展示会管理、商談管理などの主要機能がデグレードしていないことを確認する。
+          - 特に、ユーザーIDやロール情報に依存するロジックが正しく動作することを確認する。
+        responsible_person: "QAチーム"
+        estimated_duration: "5日間"
+        dependencies: ["B-P03-T01"]
+        deliverables:
+          - "回帰テスト報告書"
+          - "発見された不具合の修正"
+        relevant_files:
+          - "backend/tests/integration/api-endpoints.spec.ts"
+          - "backend/modules/client/client.controller.ts"
+          - "backend/modules/exhibition/exhibition.controller.ts"
+          - "backend/modules/meeting/meeting.controller.ts"
+        llm_actions:
+          - "認証基盤変更時に特に注意すべき回帰テストのポイントをリストアップ。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "B-P03-T03"
+        task_name: "APIドキュメント (Swagger) の更新"
+        description: |
+          - 認証方法の変更（Supabase JWTの使用）、エンドポイントの変更・削除などをSwaggerドキュメントに正確に反映する。
+          - 各エンドポイントの認証・認可要件（必要なロールなど）を明記する。
+        responsible_person: "開発チームリード"
+        estimated_duration: "2日間"
+        dependencies: ["B-P02-T04"]
+        deliverables:
+          - "更新されたSwagger APIドキュメント"
+        relevant_files:
+          - "backend/src/main.ts" # Swagger設定箇所
+          - "backend/src/modules/**/controllers/*.controller.ts" # 各コントローラーのデコレータ
+        llm_actions:
+          - "SwaggerでSupabase JWT認証を記述する方法の例を提示。"
+        status: "完了"
+        priority: "中"
+
+# 備考:
+# - 各タスクの `estimated_duration` は目安であり、プロジェクトの進捗や複雑性に応じて調整が必要です。
+# - `relevant_files` には主要な関連ファイルを記載していますが、実際にはこれら以外にも影響範囲が及ぶ可能性があります。
+# - `llm_actions` は、LLMがこの計画を解釈し、具体的なコード生成や提案を行う際のヒントとなることを意図しています。
+# - フロントエンドの改修は本計画の直接的なスコープ外ですが、バックエンドAPIの変更点はフロントエンドチームと密に連携を取り、情報共有を行う必要があります。
+```
+
+この計画書は、Supabase Authへの移行を中心としたバックエンド改修の初期段階に焦点を当てています。
+各タスクの詳細な内容やLLMに期待するアクションを記述することで、LLMがプロジェクトの文脈をより深く理解し、適切な支援を提供できるようになることを目指しています。
+
+この計画で不明な点や、さらに詳細化したい箇所があれば、お気軽にお知らせください。例えば、特定のタスクについて、より具体的なコードレベルの指示や期待するLLMの応答などを追加することも可能

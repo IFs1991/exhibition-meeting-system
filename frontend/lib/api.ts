@@ -4,100 +4,13 @@
  * バックエンドAPIとの通信を行うユーティリティ関数
  */
 
+import { createClient } from '@/lib/supabase/client'
+
 // APIベースURLの設定（環境変数から取得、ない場合はデフォルト値を使用）
-const API_BASE_URL = (() => {
-  // 環境変数からURLを取得
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  // 環境変数が設定されている場合はそれを使用
-  if (envUrl) return envUrl;
-
-  // 開発環境の場合はlocalhostを使用
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:3001/api';
-  }
-
-  // 本番環境の場合は相対パスを使用（同一オリジンからのリクエスト）
-  return '/api';
-})();
-
-// 開発モードでモックAPIを使用するかどうか (バックエンドが起動していない場合)
-const USE_MOCK_API = true;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 // URLが正しく設定されているかコンソールに出力（デバッグ用）
 console.log('API_BASE_URL:', API_BASE_URL);
-console.log('モックAPIモード:', USE_MOCK_API ? '有効' : '無効');
-
-// モックデータ
-const mockData = {
-  users: [
-    { id: '1', name: '管理者ユーザー', email: 'admin@example.com', role: 'admin', companyName: 'デモ株式会社' },
-    { id: '2', name: 'クライアントユーザー', email: 'client@example.com', role: 'client', companyName: 'サンプル商事' }
-  ],
-  // 他のモックデータをここに追加できます
-};
-
-// モックAPIレスポンスを返す関数
-function getMockResponse(endpoint: string, options: RequestOptions = {}): any {
-  console.log(`モックAPIリクエスト: ${endpoint}`, options);
-
-  // /auth/login エンドポイント
-  if (endpoint === '/auth/login' && options.method === 'POST') {
-    const { email, password } = options.body || {};
-
-    if (email === 'admin@example.com' && password === 'password123') {
-      return {
-        user: mockData.users[0],
-        token: 'mock-admin-token-12345'
-      };
-    } else if (email === 'client@example.com' && password === 'password123') {
-      return {
-        user: mockData.users[1],
-        token: 'mock-client-token-67890'
-      };
-    } else {
-      throw new Error('メールアドレスまたはパスワードが正しくありません');
-    }
-  }
-
-  // /auth/profile エンドポイント
-  if (endpoint === '/auth/profile') {
-    // Cookie からユーザーロールを取得
-    const userRole = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('user_role='))
-      ?.split('=')[1];
-
-    if (userRole === 'admin') {
-      return { user: mockData.users[0] };
-    } else if (userRole === 'client') {
-      return { user: mockData.users[1] };
-    } else {
-      throw new Error('認証情報が見つかりません');
-    }
-  }
-
-  // /auth/logout エンドポイント
-  if (endpoint === '/auth/logout') {
-    return { success: true };
-  }
-
-  // 他のエンドポイントのモック処理をここに追加できます
-
-  // デフォルトのレスポンス
-  throw new Error(`未実装のモックエンドポイント: ${endpoint}`);
-}
-
-type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
-
-interface RequestOptions {
-  method?: RequestMethod;
-  headers?: HeadersInit;
-  body?: any;
-  credentials?: RequestCredentials;
-  retries?: number; // 再試行回数
-  retryDelay?: number; // 再試行間の待機時間（ミリ秒）
-}
 
 /**
  * ページネーションパラメータの型
@@ -113,114 +26,59 @@ export interface PaginationParams {
 /**
  * API呼び出しを行う汎用関数
  */
-async function fetchAPI<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  // モックAPIモードが有効の場合はモックレスポンスを返す
-  if (USE_MOCK_API) {
-    // 非同期処理をシミュレート
-    await new Promise(resolve => setTimeout(resolve, 500));
-    try {
-      return getMockResponse(endpoint, options) as T;
-    } catch (error) {
-      console.error('モックAPIエラー:', error);
-      throw error;
-    }
+export async function fetchAPI<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session && endpoint !== '/auth/login' && endpoint !== '/auth/register') {
+    throw new Error('認証が必要です。再ログインしてください。')
   }
 
-  const {
-    method = 'GET',
-    headers = {},
-    body,
-    credentials = 'include',
-    retries = 2, // デフォルトで2回再試行
-    retryDelay = 1000 // デフォルトで1秒待機
-  } = options;
-
-  const requestHeaders: HeadersInit = {
+  const headers = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    ...headers,
-  };
-
-  const requestOptions: RequestInit = {
-    method,
-    headers: requestHeaders,
-    credentials,
-    mode: 'cors', // CORSモードを明示的に設定
-  };
-
-  if (body) {
-    requestOptions.body = JSON.stringify(body);
+    ...(session?.access_token && {
+      Authorization: `Bearer ${session.access_token}`,
+    }),
+    ...options.headers,
   }
 
-  // 再試行を含むフェッチロジック
-  let lastError: Error | null = null;
-  let retryCount = 0;
+  // optionsからbodyを取り出し、オブジェクトの場合はJSON文字列に変換
+  const { body, ...restOptions } = options as any
 
-  while (retryCount <= retries) {
-    try {
-      if (retryCount > 0) {
-        console.log(`APIリクエスト再試行 (${retryCount}/${retries}): ${API_BASE_URL}${endpoint}`);
-        // 再試行前に待機
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      } else {
-        console.log(`APIリクエスト: ${API_BASE_URL}${endpoint}`, { method, body });
-      }
+  const requestOptions = {
+    ...restOptions,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  }
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions)
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error(`APIエラー: ${response.status} ${response.statusText}`, errorData);
-        throw new Error(errorData.message || `APIリクエストエラー: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      lastError = error as Error;
-
-      // ネットワークエラーのみ再試行
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        retryCount++;
-        if (retryCount <= retries) {
-          continue; // 再試行
-        }
-      } else {
-        // その他のエラーは即時スロー
-        break;
-      }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || `API request failed with status ${response.status}`)
     }
-  }
 
-  // すべての再試行が失敗した場合
-  console.error(`API通信エラー (${retries}回再試行後): ${API_BASE_URL}${endpoint}`, lastError);
-  if (lastError instanceof TypeError && lastError.message.includes('Failed to fetch')) {
-    throw new Error(`サーバーに接続できません。バックエンドサーバーが実行中であることを確認してください。URL: ${API_BASE_URL}`);
+    return response.json()
+  } catch (error) {
+    console.error('API request error:', error)
+    throw error
   }
-  throw lastError;
 }
 
 /**
  * 認証関連API
  */
 export const authAPI = {
-  login: (email: string, password: string) =>
-    fetchAPI<{ user: any; token: string }>('/auth/login', {
-      method: 'POST',
-      body: { email, password },
-    }),
-
-  register: (userData: any) =>
-    fetchAPI<{ user: any }>('/auth/register', {
-      method: 'POST',
-      body: userData,
-    }),
-
-  logout: () =>
-    fetchAPI<void>('/auth/logout', { method: 'POST' }),
-
+  // ログインはSupabaseが直接処理するため不要
+  // profileの取得はバックエンドから取得する
   getProfile: () =>
     fetchAPI<{ user: any }>('/auth/profile'),
 
+  // プロファイル更新
   updateProfile: (userData: any) =>
     fetchAPI<{ user: any }>('/auth/profile', {
       method: 'PUT',
@@ -232,11 +90,15 @@ export const authAPI = {
  * クライアント管理API
  */
 export const clientAPI = {
-  getAll: (params?: PaginationParams) =>
-    fetchAPI<{ clients: any[]; total: number; page: number; totalPages: number }>('/clients', {
-      method: 'GET',
-      headers: params ? { 'Query-Params': JSON.stringify(params) } : undefined
-    }),
+  getAll: (params?: PaginationParams) => {
+    const queryParams = params ? new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+
+    return fetchAPI<{ clients: any[]; total: number; page: number; totalPages: number }>(
+      `/clients${queryParams ? `?${queryParams}` : ''}`
+    );
+  },
 
   getById: (id: string) =>
     fetchAPI<{ client: any }>(`/clients/${id}`),
@@ -261,11 +123,15 @@ export const clientAPI = {
  * 展示会管理API
  */
 export const exhibitionAPI = {
-  getAll: (params?: PaginationParams) =>
-    fetchAPI<{ exhibitions: any[]; total: number; page: number; totalPages: number }>('/exhibitions', {
-      method: 'GET',
-      headers: params ? { 'Query-Params': JSON.stringify(params) } : undefined
-    }),
+  getAll: (params?: PaginationParams) => {
+    const queryParams = params ? new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+
+    return fetchAPI<{ exhibitions: any[]; total: number; page: number; totalPages: number }>(
+      `/exhibitions${queryParams ? `?${queryParams}` : ''}`
+    );
+  },
 
   getById: (id: string) =>
     fetchAPI<{ exhibition: any }>(`/exhibitions/${id}`),
@@ -286,18 +152,26 @@ export const exhibitionAPI = {
     fetchAPI<void>(`/exhibitions/${id}`, { method: 'DELETE' }),
 
   // 展示会に関連するクライアント一覧を取得
-  getRelatedClients: (id: string, params?: PaginationParams) =>
-    fetchAPI<{ clients: any[]; total: number; page: number; totalPages: number }>(`/exhibitions/${id}/clients`, {
-      method: 'GET',
-      headers: params ? { 'Query-Params': JSON.stringify(params) } : undefined
-    }),
+  getRelatedClients: (id: string, params?: PaginationParams) => {
+    const queryParams = params ? new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+
+    return fetchAPI<{ clients: any[]; total: number; page: number; totalPages: number }>(
+      `/exhibitions/${id}/clients${queryParams ? `?${queryParams}` : ''}`
+    );
+  },
 
   // 展示会に関連する商談予約一覧を取得
-  getScheduledMeetings: (id: string, params?: PaginationParams) =>
-    fetchAPI<{ meetings: any[]; total: number; page: number; totalPages: number }>(`/exhibitions/${id}/meetings`, {
-      method: 'GET',
-      headers: params ? { 'Query-Params': JSON.stringify(params) } : undefined
-    }),
+  getScheduledMeetings: (id: string, params?: PaginationParams) => {
+    const queryParams = params ? new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+
+    return fetchAPI<{ meetings: any[]; total: number; page: number; totalPages: number }>(
+      `/exhibitions/${id}/meetings${queryParams ? `?${queryParams}` : ''}`
+    );
+  },
 
   // クライアントを展示会に登録
   addClient: (exhibitionId: string, clientId: string, data?: any) =>
@@ -317,11 +191,15 @@ export const exhibitionAPI = {
  * 商談管理API
  */
 export const meetingAPI = {
-  getAll: (params?: PaginationParams) =>
-    fetchAPI<{ meetings: any[]; total: number; page: number; totalPages: number }>('/meetings', {
-      method: 'GET',
-      headers: params ? { 'Query-Params': JSON.stringify(params) } : undefined
-    }),
+  getAll: (params?: PaginationParams) => {
+    const queryParams = params ? new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+
+    return fetchAPI<{ meetings: any[]; total: number; page: number; totalPages: number }>(
+      `/meetings${queryParams ? `?${queryParams}` : ''}`
+    );
+  },
 
   getById: (id: string) =>
     fetchAPI<{ meeting: any }>(`/meetings/${id}`),
@@ -338,17 +216,43 @@ export const meetingAPI = {
       body: meetingData,
     }),
 
-  cancel: (id: string, reason?: string) =>
-    fetchAPI<void>(`/meetings/${id}/cancel`, {
-      method: 'POST',
-      body: { reason }
+  delete: (id: string) =>
+    fetchAPI<void>(`/meetings/${id}`, { method: 'DELETE' }),
+
+  // 特定のクライアントの商談予約一覧を取得
+  getByClientId: (clientId: string, params?: PaginationParams) => {
+    const queryParams = params ? new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+
+    return fetchAPI<{ meetings: any[]; total: number; page: number; totalPages: number }>(
+      `/clients/${clientId}/meetings${queryParams ? `?${queryParams}` : ''}`
+    );
+  },
+
+  // 特定の展示会の商談予約一覧を取得
+  getByExhibitionId: (exhibitionId: string, params?: PaginationParams) => {
+    const queryParams = params ? new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+
+    return fetchAPI<{ meetings: any[]; total: number; page: number; totalPages: number }>(
+      `/exhibitions/${exhibitionId}/meetings${queryParams ? `?${queryParams}` : ''}`
+    );
+  },
+
+  // 商談ステータスを更新
+  updateStatus: (id: string, status: string) =>
+    fetchAPI<{ meeting: any }>(`/meetings/${id}/status`, {
+      method: 'PATCH',
+      body: { status }
     }),
 
-  // 特定の展示会IDに関連する商談一覧取得
-  getByExhibitionId: (exhibitionId: string, params?: PaginationParams) =>
-    fetchAPI<{ meetings: any[]; total: number; page: number; totalPages: number }>(`/exhibitions/${exhibitionId}/meetings`, {
-      method: 'GET',
-      headers: params ? { 'Query-Params': JSON.stringify(params) } : undefined
+  // フィードバックを登録
+  addFeedback: (id: string, feedback: string) =>
+    fetchAPI<{ meeting: any }>(`/meetings/${id}/feedback`, {
+      method: 'POST',
+      body: { feedback }
     }),
 };
 
@@ -402,6 +306,53 @@ export const aiAPI = {
       body: params
     }),
 };
+
+// APIエンドポイントの型定義
+export interface APIEndpoints {
+  // 展示会関連
+  exhibitions: {
+    list: '/api/exhibitions'
+    detail: (id: string) => `/api/exhibitions/${id}`
+    create: '/api/exhibitions'
+    update: (id: string) => `/api/exhibitions/${id}`
+    delete: (id: string) => `/api/exhibitions/${id}`
+  }
+  // 商談関連
+  meetings: {
+    list: '/api/meetings'
+    detail: (id: string) => `/api/meetings/${id}`
+    create: '/api/meetings'
+    update: (id: string) => `/api/meetings/${id}`
+    delete: (id: string) => `/api/meetings/${id}`
+  }
+  // ユーザー関連
+  users: {
+    profile: '/api/users/profile'
+    updateProfile: '/api/users/profile'
+  }
+}
+
+// APIエンドポイントの定義
+export const API: APIEndpoints = {
+  exhibitions: {
+    list: '/api/exhibitions',
+    detail: (id) => `/api/exhibitions/${id}`,
+    create: '/api/exhibitions',
+    update: (id) => `/api/exhibitions/${id}`,
+    delete: (id) => `/api/exhibitions/${id}`,
+  },
+  meetings: {
+    list: '/api/meetings',
+    detail: (id) => `/api/meetings/${id}`,
+    create: '/api/meetings',
+    update: (id) => `/api/meetings/${id}`,
+    delete: (id) => `/api/meetings/${id}`,
+  },
+  users: {
+    profile: '/api/users/profile',
+    updateProfile: '/api/users/profile',
+  },
+}
 
 export default {
   auth: authAPI,

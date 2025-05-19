@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -8,14 +8,65 @@ import { ExhibitionController } from '../../modules/exhibition/exhibition.contro
 import { ClientController } from '../../modules/client/client.controller';
 import { MeetingController } from '../../modules/meeting/meeting.controller';
 import { StatsController } from '../../modules/stats/stats.controller';
+import { JwtService } from '@nestjs/jwt';
+import { UnifiedConfigService } from '../../config/unified-config.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Profile } from '../../entities/profile.entity';
+import { UserRole } from '../../entities/user.entity';
+
+// Supabase JWTをモックするための関数
+const generateMockSupabaseJwt = (userId: string, email: string, role?: string) => {
+  const jwtService = new JwtService();
+  const payload = {
+    sub: userId,
+    email: email,
+    aud: 'authenticated',
+    exp: Math.floor(Date.now() / 1000) + 3600, // 1時間後に期限切れ
+    iat: Math.floor(Date.now() / 1000),
+    role: role
+  };
+  return jwtService.sign(payload, { secret: 'mock_jwt_secret' });
+};
 
 describe('API Integration Tests', () => {
   let app: INestApplication;
-  let authToken: string;
-  let adminAuthToken: string;
-  let clientAuthToken: string;
+  let mockProfile: any;
+  let jwtService: JwtService;
+  let configService: UnifiedConfigService;
+  let profileRepository: any;
+
+  // モックトークン
+  let exhibitorToken: string;
+  let adminToken: string;
+  let clientToken: string;
+
+  // モックユーザーID
+  const mockExhibitorId = '123e4567-e89b-12d3-a456-426614174000';
+  const mockAdminId = '123e4567-e89b-12d3-a456-426614174001';
+  const mockClientId = '123e4567-e89b-12d3-a456-426614174002';
 
   beforeEach(async () => {
+    // プロファイルリポジトリのモック
+    profileRepository = {
+      findOne: jest.fn().mockImplementation(({ where }) => {
+        const profiles = {
+          [mockExhibitorId]: { id: mockExhibitorId, role: UserRole.EXHIBITOR, fullName: 'テスト出展者' },
+          [mockAdminId]: { id: mockAdminId, role: UserRole.ADMIN, fullName: '管理者ユーザー' },
+          [mockClientId]: { id: mockClientId, role: UserRole.CLIENT, fullName: 'クライアントユーザー', companyName: 'テスト企業株式会社' }
+        };
+        return Promise.resolve(profiles[where.id]);
+      })
+    };
+
+    // JWTサービスとConfigサービスのモック
+    jwtService = new JwtService();
+    configService = {
+      supabaseJwtSecret: 'mock_jwt_secret',
+      corsOrigins: ['http://localhost:3000'],
+      port: 3000
+    } as any;
+
+    // モジュール設定
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [
         UserController,
@@ -25,109 +76,62 @@ describe('API Integration Tests', () => {
         MeetingController,
         StatsController,
       ],
+      providers: [
+        { provide: JwtService, useValue: jwtService },
+        { provide: UnifiedConfigService, useValue: configService },
+        { provide: getRepositoryToken(Profile), useValue: profileRepository }
+      ]
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
+
+    // モックトークンの生成
+    exhibitorToken = generateMockSupabaseJwt(
+      mockExhibitorId,
+      'exhibitor@example.com'
+    );
+
+    adminToken = generateMockSupabaseJwt(
+      mockAdminId,
+      'admin@example.com'
+    );
+
+    clientToken = generateMockSupabaseJwt(
+      mockClientId,
+      'client@example.com'
+    );
   });
 
   afterEach(async () => {
     await app.close();
   });
 
-  describe('認証フロー', () => {
-    it('ユーザー登録 -> ログイン -> トークン取得', async () => {
-      // ユーザー登録
-      const registerResponse = await request(app.getHttpServer())
-        .post('/auth/register')
-        .send({
-          email: 'test@example.com',
-          password: 'Password123!',
-          clinicName: 'テスト整骨院',
-        })
-        .expect(201);
-
-      // ログイン
-      const loginResponse = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'Password123!',
-        })
+  describe('Supabase認証・認可フロー', () => {
+    it('認証済みユーザーがプロフィール情報を取得できる', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/users/profile')
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .expect(200);
 
-      authToken = loginResponse.body.token;
-      expect(authToken).toBeDefined();
+      expect(response.body.user.id).toBe(mockExhibitorId);
+      expect(response.body.user.fullName).toBe('テスト出展者');
     });
 
-    // 展示会システム向けの認証テスト
-    it('管理者登録 -> 管理者ログイン -> 管理者トークン取得', async () => {
-      // 管理者登録
-      const adminRegisterResponse = await request(app.getHttpServer())
-        .post('/users/register')
-        .send({
-          email: 'admin@example.com',
-          password: 'AdminPass123!',
-          name: '管理者ユーザー',
-          role: 'admin',
-        })
-        .expect(201);
-
-      // 管理者ログイン
-      const adminLoginResponse = await request(app.getHttpServer())
-        .post('/users/login')
-        .send({
-          email: 'admin@example.com',
-          password: 'AdminPass123!',
-        })
+    it('管理者ユーザーが管理者専用エンドポイントにアクセスできる', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/clients')
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      adminAuthToken = adminLoginResponse.body.token;
-      expect(adminAuthToken).toBeDefined();
-
-      // 管理者プロフィール取得
-      const adminProfileResponse = await request(app.getHttpServer())
-        .get('/users/profile')
-        .set('Authorization', `Bearer ${adminAuthToken}`)
-        .expect(200);
-
-      expect(adminProfileResponse.body.user.role).toBe('admin');
+      expect(response.body).toBeDefined();
     });
 
-    it('クライアント登録 -> クライアントログイン -> クライアントトークン取得', async () => {
-      // クライアント登録
-      const clientRegisterResponse = await request(app.getHttpServer())
-        .post('/users/register')
-        .send({
-          email: 'client@example.com',
-          password: 'ClientPass123!',
-          name: 'クライアントユーザー',
-          role: 'client',
-          companyName: 'テスト企業株式会社',
-          industry: 'IT・通信',
-        })
-        .expect(201);
-
-      // クライアントログイン
-      const clientLoginResponse = await request(app.getHttpServer())
-        .post('/users/login')
-        .send({
-          email: 'client@example.com',
-          password: 'ClientPass123!',
-        })
-        .expect(200);
-
-      clientAuthToken = clientLoginResponse.body.token;
-      expect(clientAuthToken).toBeDefined();
-
-      // クライアントプロフィール取得
-      const clientProfileResponse = await request(app.getHttpServer())
-        .get('/users/profile')
-        .set('Authorization', `Bearer ${clientAuthToken}`)
-        .expect(200);
-
-      expect(clientProfileResponse.body.user.role).toBe('client');
-      expect(clientProfileResponse.body.user.companyName).toBe('テスト企業株式会社');
+    it('クライアントユーザーが管理者専用エンドポイントにアクセスできない', async () => {
+      await request(app.getHttpServer())
+        .get('/clients')
+        .set('Authorization', `Bearer ${clientToken}`)
+        .expect(403);
     });
 
     it('未認証アクセス時のエラーハンドリング', async () => {
@@ -143,12 +147,20 @@ describe('API Integration Tests', () => {
         .expect(401);
     });
 
-    it('権限制限のあるエンドポイントへのアクセス制御', async () => {
-      // クライアントが管理者専用エンドポイントへアクセス
+    it('有効期限切れのトークンでアクセスできない', async () => {
+      // 有効期限切れのトークンを生成
+      const expiredToken = jwtService.sign({
+        sub: mockExhibitorId,
+        email: 'exhibitor@example.com',
+        aud: 'authenticated',
+        exp: Math.floor(Date.now() / 1000) - 3600, // 1時間前に期限切れ
+        iat: Math.floor(Date.now() / 1000) - 7200,
+      }, { secret: 'mock_jwt_secret' });
+
       await request(app.getHttpServer())
-        .get('/clients')
-        .set('Authorization', `Bearer ${clientAuthToken}`)
-        .expect(403);
+        .get('/users/profile')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .expect(401);
     });
   });
 
@@ -165,7 +177,7 @@ describe('API Integration Tests', () => {
 
       const createResponse = await request(app.getHttpServer())
         .post('/receipts')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .send(receiptCase)
         .expect(201);
 
@@ -174,7 +186,7 @@ describe('API Integration Tests', () => {
       // 事例検索
       const searchResponse = await request(app.getHttpServer())
         .get('/receipts/search')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .query({ keyword: '腰痛' })
         .expect(200);
 
@@ -183,7 +195,7 @@ describe('API Integration Tests', () => {
       // 詳細取得
       await request(app.getHttpServer())
         .get(`/receipts/${caseId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .expect(200);
     });
   });
@@ -200,7 +212,7 @@ describe('API Integration Tests', () => {
       // 理由書生成リクエスト
       const generateResponse = await request(app.getHttpServer())
         .post('/ai/generate')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .send(symptoms)
         .expect(202);
 
@@ -211,7 +223,7 @@ describe('API Integration Tests', () => {
 
       const resultResponse = await request(app.getHttpServer())
         .get(`/ai/results/${taskId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .expect(200);
 
       expect(resultResponse.body.content).toBeDefined();
@@ -230,14 +242,14 @@ describe('API Integration Tests', () => {
 
       await request(app.getHttpServer())
         .post('/feedback')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .send(feedback)
         .expect(201);
 
       // フィードバック統計取得
       const statsResponse = await request(app.getHttpServer())
         .get('/feedback/stats')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${exhibitorToken}`)
         .expect(200);
 
       expect(statsResponse.body.approvalRate).toBeDefined();
@@ -259,7 +271,7 @@ describe('API Integration Tests', () => {
 
       const createResponse = await request(app.getHttpServer())
         .post('/clients')
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send(clientData)
         .expect(201);
 
@@ -269,7 +281,7 @@ describe('API Integration Tests', () => {
       // クライアント一覧取得
       const listResponse = await request(app.getHttpServer())
         .get('/clients')
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       expect(listResponse.body.clients.length).toBeGreaterThan(0);
@@ -277,7 +289,7 @@ describe('API Integration Tests', () => {
       // クライアント詳細取得
       const detailResponse = await request(app.getHttpServer())
         .get(`/clients/${clientId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       expect(detailResponse.body.client.companyName).toBe('テスト企業株式会社');
@@ -285,7 +297,7 @@ describe('API Integration Tests', () => {
       // クライアント更新
       const updateResponse = await request(app.getHttpServer())
         .put(`/clients/${clientId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           companyName: '更新テスト企業株式会社',
           notes: '更新されたメモ',
@@ -298,13 +310,13 @@ describe('API Integration Tests', () => {
       // クライアント削除
       await request(app.getHttpServer())
         .delete(`/clients/${clientId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       // 削除後の取得確認 (404が期待される)
       await request(app.getHttpServer())
         .get(`/clients/${clientId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(404);
     });
 
@@ -312,7 +324,7 @@ describe('API Integration Tests', () => {
       // 一般クライアントユーザーが管理者用クライアント一覧APIにアクセス
       await request(app.getHttpServer())
         .get('/clients')
-        .set('Authorization', `Bearer ${clientAuthToken}`)
+        .set('Authorization', `Bearer ${clientToken}`)
         .expect(403);
     });
   });
@@ -331,7 +343,7 @@ describe('API Integration Tests', () => {
 
       const createResponse = await request(app.getHttpServer())
         .post('/exhibitions')
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send(exhibitionData)
         .expect(201);
 
@@ -341,7 +353,7 @@ describe('API Integration Tests', () => {
       // 展示会一覧取得
       const listResponse = await request(app.getHttpServer())
         .get('/exhibitions')
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       expect(listResponse.body.exhibitions.length).toBeGreaterThan(0);
@@ -349,7 +361,7 @@ describe('API Integration Tests', () => {
       // 展示会詳細取得
       const detailResponse = await request(app.getHttpServer())
         .get(`/exhibitions/${exhibitionId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       expect(detailResponse.body.exhibition.name).toBe('テスト展示会2025');
@@ -357,7 +369,7 @@ describe('API Integration Tests', () => {
       // 展示会更新
       const updateResponse = await request(app.getHttpServer())
         .patch(`/exhibitions/${exhibitionId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           description: '更新された説明文',
           isPublic: false,
@@ -370,13 +382,13 @@ describe('API Integration Tests', () => {
       // 展示会削除
       await request(app.getHttpServer())
         .delete(`/exhibitions/${exhibitionId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       // 削除後の取得確認 (404が期待される)
       await request(app.getHttpServer())
         .get(`/exhibitions/${exhibitionId}`)
-        .set('Authorization', `Bearer ${adminAuthToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(404);
     });
   });

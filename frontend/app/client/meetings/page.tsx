@@ -12,13 +12,14 @@ import {
   Clock,
   Building
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast, handleApiError } from "@/hooks/use-toast"
 import Link from "next/link"
 import { meetingAPI, exhibitionAPI } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { formatDate, formatTime } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { getMyMeetings, getPublicExhibitions } from "@/lib/supabase/queries"
 
 // 商談予約の型定義
 interface Meeting {
@@ -50,6 +51,7 @@ export default function MeetingsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isLoading, setIsLoading] = useState(true)
+  const [dataSource, setDataSource] = useState<"supabase" | "api">("api")
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()
@@ -59,31 +61,65 @@ export default function MeetingsPage() {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-        // 商談一覧を取得
-        const meetingsResponse = await meetingAPI.getAll()
-        setMeetings(meetingsResponse.meetings)
-        setFilteredMeetings(meetingsResponse.meetings)
 
-        // アクティブな展示会一覧を取得
-        const exhibitionsResponse = await exhibitionAPI.getAll({
-          status: "active",
-          limit: 5
-        })
-        setExhibitions(exhibitionsResponse.exhibitions)
+        // データソースを両方試す
+        let meetingsData: Meeting[] = [];
+        let exhibitionsData: Exhibition[] = [];
+
+        // 1. まずSupabaseからの直接取得を試みる (RLSで保護)
+        try {
+          // 自分の商談一覧を取得
+          const myMeetings = await getMyMeetings();
+
+          // 公開展示会一覧を取得
+          const publicExhibitions = await getPublicExhibitions();
+
+          // 取得したデータを整形
+          meetingsData = myMeetings.map(m => ({
+            id: m.id,
+            exhibitionId: m.exhibitionId,
+            exhibitionName: publicExhibitions.find(e => e.id === m.exhibitionId)?.name || '不明な展示会',
+            date: m.startTime.split('T')[0],
+            startTime: m.startTime,
+            endTime: m.endTime,
+            status: m.status === 'scheduled' ? 'confirmed'
+                  : m.status === 'cancelled' ? 'canceled'
+                  : 'pending',
+            purpose: m.notes,
+          }));
+
+          exhibitionsData = publicExhibitions;
+          setDataSource("supabase");
+          console.log('Supabaseから取得した商談データ:', meetingsData.length);
+        } catch (supabaseError) {
+          console.warn('Supabaseからの取得に失敗、APIにフォールバック:', supabaseError);
+
+          // 2. Supabaseからの取得に失敗した場合、バックエンドAPIから取得
+          const meetingsResponse = await meetingAPI.getAll();
+          meetingsData = meetingsResponse.meetings;
+
+          const exhibitionsResponse = await exhibitionAPI.getAll({
+            status: "active",
+            limit: 5
+          });
+          exhibitionsData = exhibitionsResponse.exhibitions;
+          setDataSource("api");
+          console.log('APIから取得した商談データ:', meetingsData.length);
+        }
+
+        setMeetings(meetingsData);
+        setFilteredMeetings(meetingsData);
+        setExhibitions(exhibitionsData);
       } catch (error) {
-        console.error("データ取得エラー:", error)
-        toast({
-          title: "エラーが発生しました",
-          description: "商談情報の取得に失敗しました。",
-          variant: "destructive",
-        })
+        console.error("データ取得エラー:", error);
+        handleApiError(error, toast);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [toast])
+    fetchData();
+  }, [toast]);
 
   // 検索とフィルタリング
   useEffect(() => {

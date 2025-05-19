@@ -18,12 +18,18 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
+      // Supabase JWTを検証
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.jwtSecret,
+        secret: this.configService.supabaseJwtSecret,
       });
 
       // リクエストオブジェクトにユーザー情報を追加
-      request.user = payload;
+      // Supabase JWTでは、ユーザーIDは 'sub' クレームに格納されている
+      request.user = {
+        id: payload.sub,
+        email: payload.email,
+        ...payload,
+      };
     } catch (error) {
       throw new UnauthorizedException('無効な認証トークンです');
     }

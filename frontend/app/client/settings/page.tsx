@@ -13,11 +13,13 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TimePickerInput } from "@/components/time-picker-input"
-import { useToast } from "@/hooks/use-toast"
+import { useToast, handleApiError } from "@/hooks/use-toast"
 import { Loader2, Save, Trash2, User, Calendar, Check, Plus, AlertCircle } from "lucide-react"
 import { useCompany, type Exhibition } from "@/contexts/company-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useAuth } from '@/contexts/auth-context'
+import { authAPI } from "@/lib/api"
 
 // 担当者の型定義
 interface StaffMember {
@@ -42,6 +44,10 @@ interface MeetingTimeSettings {
 export default function CompanySettings() {
   // CompanyContextから会社情報と更新関数を取得
   const { companyInfo, updateCompanyInfo, updateExhibition, addExhibition, removeExhibition, isLoading } = useCompany()
+  const { user, updateProfile } = useAuth()
+  const { toast } = useToast()
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileData, setProfileData] = useState<any>(null)
 
   // 基本情報の状態
   const [companyName, setCompanyName] = useState(companyInfo.companyName)
@@ -62,6 +68,48 @@ export default function CompanySettings() {
 
   // 変更があったかどうかを追跡
   const [hasChanges, setHasChanges] = useState(false)
+
+  // プロファイル情報を取得
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setProfileLoading(true)
+
+        // APIを使用したデータ取得と、Supabaseクエリを使用したデータ取得の両方を実装
+        // 1. バックエンドAPI経由でプロファイル情報を取得
+        const apiData = await authAPI.getProfile().catch(() => null)
+
+        // 2. Supabaseから直接データ取得（RLSで保護）
+        const { getMyProfile } = await import('@/lib/supabase/queries')
+        const supabaseData = await getMyProfile().catch(() => null)
+
+        // データを統合（APIデータを優先）
+        const profileInfo = apiData?.user || supabaseData
+
+        if (profileInfo) {
+          setProfileData(profileInfo)
+
+          // プロファイル情報が会社情報を含む場合は設定
+          if (profileInfo.companyName) setCompanyName(profileInfo.companyName)
+          if (profileInfo.address) setAddress(profileInfo.address)
+          if (profileInfo.phoneNumber) setPhone(profileInfo.phoneNumber)
+        }
+      } catch (error) {
+        console.error('プロファイル情報の取得に失敗しました', error)
+        toast({
+          title: 'エラー',
+          description: 'プロファイル情報の取得に失敗しました',
+          variant: 'destructive',
+        })
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+
+    if (user) {
+      fetchProfileData()
+    }
+  }, [user, toast])
 
   // CompanyContextが更新されたら、ローカルの状態も更新
   useEffect(() => {
@@ -108,7 +156,6 @@ export default function CompanySettings() {
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
 
   // 業種の選択肢
   const industries = useMemo(
@@ -246,27 +293,26 @@ export default function CompanySettings() {
   // 入力検証
   const validateForm = useCallback(() => {
     const newErrors: {
-      companyName?: string
-      exhibitions?: string
-    } = {}
+      companyName?: string;
+      exhibitions?: string;
+    } = {};
 
-    // 会社名の検証
     if (!companyName.trim()) {
-      newErrors.companyName = "会社名は必須です"
+      newErrors.companyName = "会社名は必須です";
     }
 
-    // 展示会の検証
-    const hasValidExhibition = exhibitions.some((exhibition) => exhibition.name.trim() !== "")
-
-    if (!hasValidExhibition) {
-      newErrors.exhibitions = "少なくとも1つの展示会名を入力してください"
+    const hasValidExhibition = exhibitions.some(
+      (exhibition) => exhibition.name.trim() && exhibition.period.trim()
+    );
+    if (exhibitions.length > 0 && !hasValidExhibition) {
+      newErrors.exhibitions = "展示会情報を正しく入力してください";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }, [companyName, exhibitions])
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [companyName, exhibitions]);
 
-  // フォーム送信処理
+  // 送信ハンドラ
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -283,8 +329,8 @@ export default function CompanySettings() {
     setIsSubmitting(true)
 
     try {
-      // 会社情報をContextに更新
-      updateCompanyInfo({
+      // 会社情報の更新
+      await updateCompanyInfo({
         companyName,
         industry,
         address,
@@ -293,21 +339,31 @@ export default function CompanySettings() {
         description,
       })
 
-      // 実際の実装ではAPIリクエストを行う
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      // プロファイル情報の更新（Supabase Auth経由）
+      if (profileData) {
+        // updateProfileの型に合わせて必要なデータだけを渡す
+        await updateProfile({
+          fullName: profileData.fullName || ''
+        })
+
+        // プロファイル情報の更新はAPIを通して行う
+        await authAPI.updateProfile({
+          fullName: profileData.fullName,
+          companyName,
+          phoneNumber: phone,
+          address,
+        })
+      }
 
       toast({
-        title: "設定が保存されました",
-        description: "自社情報が正常に更新されました",
+        title: "設定を保存しました",
+        description: "会社情報とプロファイルが更新されました",
       })
 
       setHasChanges(false)
     } catch (error) {
-      toast({
-        title: "エラーが発生しました",
-        description: "設定の保存に失敗しました。再度お試しください。",
-        variant: "destructive",
-      })
+      console.error('設定の保存に失敗しました', error)
+      handleApiError(error, toast)
     } finally {
       setIsSubmitting(false)
     }

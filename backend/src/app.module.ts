@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UnifiedConfigService } from './config/unified-config.service';
+import { SupabaseService } from './config/supabase.service';
 import { dataSourceOptions } from './database/data-source';
 import { UserModule } from './modules/user/user.module';
 import { ClientModule } from './modules/client/client.module';
@@ -31,11 +32,16 @@ import { APP_FILTER } from '@nestjs/core';
   providers: [
     AppService,
     UnifiedConfigService,
+    SupabaseService,
     // グローバル例外フィルターを登録
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
+  ],
+  exports: [
+    UnifiedConfigService,
+    SupabaseService,
   ],
 })
 export class AppModule {}

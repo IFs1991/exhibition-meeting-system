@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useToast } from "@/hooks/use-toast"
 import { useMobile } from "@/hooks/use-mobile"
+import { useAuth } from '@/contexts/auth-context'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -22,6 +23,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { toast } = useToast()
   const isMobile = useMobile()
   const [open, setOpen] = useState(false)
+  const { user, logout, isLoading } = useAuth()
 
   // AdminLayout.tsx を最適化
 
@@ -57,14 +59,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   )
 
   // 2. ログアウト処理をuseCallbackでメモ化
-  const handleLogout = useCallback(() => {
-    // 実際の実装ではログアウト処理を行う
-    toast({
-      title: "ログアウト成功",
-      description: "ログアウトしました",
-    })
-    router.push("/")
-  }, [toast, router])
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast({
+        title: 'ログアウトしました',
+        description: 'またのご利用をお待ちしております',
+      })
+      router.push('/login')
+    } catch (error) {
+      toast({
+        title: 'ログアウトエラー',
+        description: error instanceof Error ? error.message : 'ログアウトに失敗しました',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // 3. Sidebarコンポーネントをメモ化して不要な再レンダリングを防止
   const Sidebar = useCallback(
@@ -115,6 +125,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const handleOpenChange = useCallback((open: boolean) => {
     setOpen(open)
   }, [])
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (!user || user.user_metadata.role !== 'admin') {
+    router.push('/login')
+    return null
+  }
 
   return (
     <div className="flex h-screen bg-slate-50">

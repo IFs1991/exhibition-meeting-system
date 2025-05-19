@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
-import { User } from '../../entities/user.entity';
+import { Profile } from '../../entities/profile.entity';
 import { UnifiedConfigService } from '../../config/unified-config.service';
-import { UserRepository } from './repositories/user.repository';
 import { UserService } from './services/user.service';
 import { UserController } from './controllers/user.controller';
 import { AuthController } from './controllers/auth.controller';
@@ -11,18 +10,17 @@ import { AuthService } from './services/auth.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([Profile]),
     JwtModule.registerAsync({
       inject: [UnifiedConfigService],
       useFactory: (configService: UnifiedConfigService) => ({
-        secret: configService.jwtSecret,
+        secret: configService.supabaseJwtSecret,
         signOptions: { expiresIn: `${configService.jwtExpiresIn}s` },
       }),
     }),
   ],
   controllers: [UserController, AuthController],
   providers: [
-    UserRepository,
     UserService,
     AuthService,
   ],

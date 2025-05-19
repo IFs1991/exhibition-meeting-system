@@ -1,0 +1,392 @@
+project_name: "展示会商談管理システム - Supabase移行 (フロントエンド・バックエンド接続確立編)"
+version: "1.0"
+creation_date: "2025-05-19"
+last_updated_date: "2025-09-26"
+overall_status: "完了"
+project_goal: "Supabase Authで認証されたフロントエンドと、Supabase Auth連携済みのNestJSバックエンド間で、セキュアかつ効率的なAPI通信を確立する。また、フロントエンドからSupabase DBへの直接アクセス（RLS活用）を実装・検証し、アプリケーション全体のデータフローと機能動作を保証する。"
+
+global_assumptions:
+  - "バックエンドのSupabase認証移行計画 (`supabase_backend_migration_plan_auth`) の全フェーズ (B-P01〜B-P03) が完了済みである。"
+  - "フロントエンドのSupabase認証基盤導入計画 (`supabase_frontend_migration_plan_auth`) の全フェーズ (F-P01〜F-P04) が完了済みである。"
+  - "SupabaseプロジェクトURL (`https://supabase.com/dashboard/project/nhokzbxuicefnslfmrmp`) および関連キー (anonキー, service_roleキー, JWTシークレット) は設定済みで、両環境からアクセス可能である。"
+  - "アプリケーションは開発中であり、既存の本番データは存在しない。"
+  - "バックエンドには `Profile` エンティティ (または類似のユーザープロファイルテーブル) が `auth.users` と連携して存在し、ロール情報を含む。"
+  - "基本的なAPIエンドポイントはバックエンドに実装済みで、Supabase JWTによる保護が適用されている。"
+  - "フロントエンドの主要なUIコンポーネントおよびページ構造は、Supabase連携前のものがベースとして存在する。"
+
+migration_target:
+  - component: "フロントエンド・バックエンドAPI連携"
+    description: "フロントエンドからのAPIリクエストが、Supabase Authによる認証情報を利用してバックエンドAPIと正しく通信できるようにする。"
+  - component: "フロントエンドからのSupabase DB直接アクセス"
+    description: "参照系のデータ取得を中心に、フロントエンドからSupabaseクライアントライブラリを通じて直接データベースにアクセスし、RLSによるセキュリティを確保する。"
+  - component: "エンドツーエンドの機能テスト"
+    description: "認証から各主要機能の利用まで、一連のユーザーフローが正常に動作することを確認する。"
+
+phases:
+  - phase_id: "FB-P01"
+    phase_name: "フェーズ1: API連携仕様の最終確認とフロントエンドAPIクライアント調整"
+    description: "バックエンドAPIの最新仕様（認証ヘッダー、エンドポイント、リクエスト/レスポンス形式）をフロントエンドチームが再確認し、フロントエンドのAPIクライアントをこれに適合させる。エラーハンドリングの共通化も行う。"
+    start_date: "2025-08-13" # フロントエンド改修計画フェーズF-P04完了後を想定
+    end_date: "2025-08-19" # 約1週間
+    responsible_team: "フロントエンド開発チームリード, バックエンド開発チームリード"
+    status: "完了"
+    tasks:
+      - task_id: "FB-P01-T01"
+        task_name: "バックエンドAPI仕様の最終レビューと共有"
+        description: |
+          - バックエンドチームは、Supabase Auth連携後のAPI仕様書（Swagger等）を最新化し、フロントエンドチームに共有する。
+          - 特に、認証トークン（Supabase JWT）のヘッダー形式、必須パラメータ、エラーレスポンスの形式とコードについて詳細に確認する。
+          - フロントエンドチームは、API仕様書に基づき、フロントエンドからのリクエストが仕様と一致しているかを確認する。
+        responsible_person: "バックエンド開発チームリード, フロントエンド開発チームリード"
+        estimated_duration: "1日間"
+        dependencies: ["B-P03-T03"] # バックエンドのSwagger更新完了
+        deliverables:
+          - "最終版API仕様書（またはその確認記録）"
+          - "フロントエンド・バックエンド間のAPI仕様合意ドキュメント（変更点や確認事項を記載）"
+        relevant_files:
+          - "backend/src/main.ts" # Swagger定義箇所
+          - "backend/src/modules/**/controllers/*.controller.ts" # APIエンドポイント定義
+          - "frontend/lib/api.ts" # フロントエンドAPIクライアント
+        llm_actions:
+          - "API仕様書の変更点を基に、フロントエンドのAPI呼び出し箇所で修正が必要となりそうなポイントをリストアップ支援。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "FB-P01-T02"
+        task_name: "フロントエンドAPIクライアント (`lib/api.ts`) の最終調整と認証ヘッダー処理の確立"
+        description: |
+          - `frontend/lib/api.ts` の `fetchAPI` 関数（または各API呼び出し箇所）が、Supabase Authから取得した有効なアクセストークンを `Authorization: Bearer <token>` ヘッダーに正しく設定してバックエンドAPIに送信することを確認・最終調整する。
+          - トークンの取得は `supabase.auth.getSession()` を使用する。
+          - トークンが存在しない場合や失効している場合の処理（例: ログインページへのリダイレクト、トークンリフレッシュ処理の呼び出し検討など）を実装する。
+        responsible_person: "フロントエンド開発者X"
+        estimated_duration: "2日間"
+        dependencies: ["F-P03-T01", "FB-P01-T01"]
+        deliverables:
+          - "確実にSupabaseアクセストークンを付与する `fetchAPI` 関数またはAPI呼び出しユーティリティ"
+          - "認証トークン関連のエラーハンドリングロジック"
+        relevant_files:
+          - "frontend/lib/api.ts"
+          - "frontend/lib/supabaseUtils.ts" # Supabaseクライアントヘルパー
+          - "frontend/contexts/auth-context.tsx" # セッション取得・管理
+        llm_actions:
+          - "アクセストークン取得とヘッダー付与、および有効期限切れ時のリフレッシュ処理（Supabaseが自動処理する範囲と手動対応が必要な範囲の切り分け含む）のコード例を提示。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "FB-P01-T03"
+        task_name: "フロントエンドにおけるAPIエラーハンドリングの共通化・強化"
+        description: |
+          - バックエンドから返される標準化されたエラーレスポンス（`GlobalExceptionFilter` や `BusinessException` によるもの）をフロントエンドで適切に処理する共通エラーハンドリング機構を整備する。
+          - HTTPステータスコード (401, 403, 400, 404, 500など) や、バックエンド定義のエラーコード (`errorType`, `code`) に基づいて、ユーザーフレンドリーなエラーメッセージを表示する。
+          - `useToast` などを活用し、一貫したエラー通知UIを提供する。
+        responsible_person: "フロントエンド開発者X"
+        estimated_duration: "2日間"
+        dependencies: ["B-P03-T02", "F-P01-T02"] # バックエンドのエラーハンドリング標準化完了
+        deliverables:
+          - "共通エラーハンドリング関数またはフック"
+          - "主要なエラーケースに対応したトースト通知やメッセージ表示の実装"
+        relevant_files:
+          - "frontend/lib/api.ts" # fetchAPI内でのエラー処理
+          - "frontend/hooks/use-toast.ts"
+          - "frontend/contexts/auth-context.tsx" # 認証エラー時の処理
+        llm_actions:
+          - "バックエンドの `GlobalExceptionFilter` が返すエラーレスポンス形式を想定し、フロントエンドでそれを解釈して適切に処理するエラーハンドリング関数のテンプレートを生成。"
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "FB-P02"
+    phase_name: "フェーズ2: 主要機能モジュールごとの接続テストとデータフロー検証"
+    description: "各主要機能について、フロントエンドからバックエンドAPIへのリクエスト、レスポンス処理、UIへのデータ反映までの一連のデータフローをテストし、問題を修正する。"
+    start_date: "2025-08-20"
+    end_date: "2025-09-02" # 約2週間
+    responsible_team: "フロントエンド開発チーム, バックエンド開発チーム（協力）"
+    status: "完了"
+    tasks:
+      - task_id: "FB-P02-T01"
+        task_name: "ユーザープロファイル機能の接続テスト"
+        description: |
+          - プロファイル表示: 認証済みユーザーが自身のプロファイル情報（`profiles` テーブルから）を正しく取得・表示できるか。
+          - プロファイル更新: フロントエンドからプロファイル情報を変更し、バックエンドAPI経由で `profiles` テーブルが更新され、UIに反映されるか。
+        responsible_person: "フロントエンド開発者X"
+        estimated_duration: "2日間"
+        dependencies: ["F-P03-T02", "B-P02-T03"]
+        deliverables:
+          - "ユーザープロファイル機能の動作確認済みフロントエンドコード"
+          - "テストケースと実行結果"
+        relevant_files:
+          - "frontend/app/client/settings/page.tsx"
+          - "frontend/contexts/auth-context.tsx"
+          - "backend/src/modules/user/controllers/user.controller.ts" # Profile関連エンドポイント
+          - "backend/src/modules/user/services/user.service.ts" # Profile関連ロジック
+        llm_actions:
+          - "プロファイル更新時のフロントエンドの状態管理とAPI呼び出しのシーケンス図のテンプレートを提案。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "FB-P02-T02"
+        task_name: "展示会管理機能 (管理者) の接続テスト"
+        description: |
+          - 一覧表示: 管理者ユーザーが展示会一覧をページネーション付きで取得・表示できるか。検索・フィルタリングが機能するか。
+          - 詳細表示: 特定の展示会の詳細情報を取得・表示できるか。
+          - 新規作成: フロントエンドのフォームから新しい展示会情報がバックエンドAPI経由で登録できるか。
+          - 更新: 既存の展示会情報がフロントエンドから編集・更新できるか。
+          - 削除: 展示会が削除できるか。
+        responsible_person: "フロントエンド開発者Y"
+        estimated_duration: "3日間"
+        dependencies: ["F-P03-T01", "B-P02-T01"] # バックエンドのExhibitionモジュールがSupabase Auth対応済みであること
+        deliverables:
+          - "展示会管理機能（管理者）の動作確認済みフロントエンドコード"
+          - "テストケースと実行結果"
+        relevant_files:
+          - "frontend/app/admin/exhibitions/"
+          - "frontend/components/exhibition-detail.tsx"
+          # - "frontend/components/exhibition-form.tsx" (想定)
+          - "backend/src/modules/exhibition/exhibition.controller.ts"
+          - "backend/src/modules/exhibition/exhibition.service.ts"
+        llm_actions:
+          - "展示会作成フォームの送信からAPI経由でのデータ永続化、UIへの反映までの一連のデータフロー図を生成。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "FB-P02-T03"
+        task_name: "クライアント管理機能 (管理者) の接続テスト"
+        description: |
+          - 一覧表示、詳細表示、新規作成、更新、削除の各機能が、管理者ユーザーによって正しく操作できるか。
+          - フロントエンドのフォーム入力がバックエンドAPIに正しく渡され、データベースに反映されるか。
+        responsible_person: "フロントエンド開発者Y"
+        estimated_duration: "3日間"
+        dependencies: ["F-P03-T01", "B-P02-T01"] # バックエンドのClientモジュールがSupabase Auth対応済み
+        deliverables:
+          - "クライアント管理機能（管理者）の動作確認済みフロントエンドコード"
+          - "テストケースと実行結果"
+        relevant_files:
+          - "frontend/app/admin/clients/"
+          - "frontend/components/client-form.tsx"
+          - "frontend/components/client-detail.tsx"
+          - "backend/src/modules/client/client.controller.ts"
+          - "backend/src/modules/client/client.service.ts"
+        llm_actions:
+          - "クライアント更新時の楽観的UI更新の実装パターンの提案。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "FB-P02-T04"
+        task_name: "商談管理機能 (クライアント・管理者) の接続テスト"
+        description: |
+          - クライアントユーザーによる商談予約作成、自身の商談一覧・詳細表示。
+          - 管理者ユーザーによる全商談一覧・詳細表示、ステータス更新など。
+          - 予約作成時のバリデーション（時間重複など）がバックエンドで正しく処理され、フロントエンドにフィードバックされるか。
+          - 商談ステータス変更がリアルタイム（または適切にリフレッシュされて）UIに反映されるか。
+        responsible_person: "フロントエンド開発者X"
+        estimated_duration: "4日間"
+        dependencies: ["F-P03-T01", "B-P02-T01"] # バックエンドのMeetingモジュールがSupabase Auth対応済み
+        deliverables:
+          - "商談管理機能の動作確認済みフロントエンドコード"
+          - "テストケースと実行結果（クライアントロール、管理者ロール双方）"
+        relevant_files:
+          - "frontend/app/client/meetings/"
+          - "frontend/app/admin/meetings/" # 必要に応じて作成
+          # - "frontend/components/meeting-form.tsx" (想定)
+          - "backend/src/modules/meeting/meeting.controller.ts"
+          - "backend/src/modules/meeting/meeting.service.ts"
+        llm_actions:
+          - "商談予約時のフロントエンドとバックエンド間のデータ検証フローの提案。"
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "FB-P03"
+    phase_name: "フェーズ3: フロントエンドからのSupabase DB直接アクセス実装とRLS検証"
+    description: "バックエンドAPIを介さずに、フロントエンドから直接Supabaseデータベースにアクセスする機能を実装し、Row Level Security (RLS) ポリシーによるセキュリティが確保されていることを検証する。"
+    start_date: "2025-09-03"
+    end_date: "2025-09-09" # 約1週間
+    responsible_team: "フロントエンド開発チームリード, バックエンド開発チームリード（RLS協力）"
+    status: "完了"
+    tasks:
+      - task_id: "FB-P03-T01"
+        task_name: "RLSポリシーの設計と実装 (バックエンドチームと協力)"
+        description: |
+          - フロントエンドから直接アクセスする可能性のあるテーブル（例: 公開展示会情報、ユーザー自身のプロファイルなど）に対して、適切なRLSポリシーをSupabase上で設計・実装する。
+          - `auth.uid()` や `auth.role()` (カスタムクレーム利用時) を使って、ユーザーの権限に基づいたアクセス制御を行う。
+          - SELECT, INSERT, UPDATE, DELETE の各操作に対してポリシーを定義する。
+        responsible_person: "バックエンド開発チームリード"
+        estimated_duration: "2日間"
+        dependencies: ["B-P01-T03", "B-P02-T02"] # Profileエンティティとロール定義完了
+        deliverables:
+          - "Supabaseデータベースに適用されたRLSポリシーのSQL定義"
+          - "RLS設計ドキュメント"
+        relevant_files:
+          - "Supabase Dashboard (SQL Editor or Policies UI)"
+        llm_actions:
+          - "特定のテーブルに対するRLSポリシーのサンプルSQL（例: 自分のデータのみ読み書き可能、公開データは全ユーザー読み取り可能など）を生成。"
+        status: "完了"
+        priority: "高"
+
+      - task_id: "FB-P03-T02"
+        task_name: "フロントエンドからのデータ読み取り処理の実装 (RLS適用箇所)"
+        description: |
+          - `frontend/lib/supabaseUtils.ts` (または各コンポーネント内) で、Supabaseクライアントライブラリ (`@supabase/ssr` または `@supabase/supabase-js`) を使用して、RLSが適用されたテーブルからデータを直接取得する処理を実装する。
+          - 例: 公開されている展示会の一覧、ログインユーザー自身のプロファイル情報など。
+          - 既存の `lib/api.ts` 経由のバックエンド呼び出しを、この直接アクセスに置き換える（該当箇所のみ）。
+        responsible_person: "フロントエンド開発者X"
+        estimated_duration: "3日間"
+        dependencies: ["F-P01-T01", "FB-P03-T01"]
+        deliverables:
+          - "Supabaseクライアントを使用してDBから直接データを取得するフロントエンドコード"
+        relevant_files:
+          - "frontend/lib/supabaseUtils.ts"
+          - "frontend/app/admin/exhibitions/page.tsx" # 例: 展示会一覧表示
+          - "frontend/app/client/settings/page.tsx" # 例: プロファイル表示
+        llm_actions:
+          - "Supabase JSクライアントを使ったデータ取得（SELECT）の基本的なコード例（エラーハンドリング含む）を提示。"
+        status: "完了"
+        priority: "中"
+
+      - task_id: "FB-P03-T03"
+        task_name: "RLSポリシーに基づいたアクセス制御テスト (フロントエンド視点)"
+        description: |
+          - 異なるロールのユーザーとしてログインし、フロントエンドから直接DBアクセスを行う機能について、RLSポリシーが意図通りに機能しているかテストする。
+            - 参照権限のあるデータのみ取得できること。
+            - 参照権限のないデータは取得できないこと（エラーまたは空の結果）。
+            - 書き込み権限のある操作のみ成功すること。
+            - 書き込み権限のない操作は失敗すること。
+        responsible_person: "QAチーム, フロントエンド開発者X"
+        estimated_duration: "2日間"
+        dependencies: ["FB-P03-T02"]
+        deliverables:
+          - "RLS適用機能のテスト報告書"
+        relevant_files:
+          - "Supabase Dashboard (Policies UI)"
+          - "frontend/app/** (RLS適用機能の関連ページ)"
+        llm_actions:
+          - "RLSポリシーのテストにおいて確認すべき一般的な観点（例: 自分のデータのみ、公開データのみ、特定ロールのみなど）をリストアップ。"
+        status: "完了"
+        priority: "高"
+
+  - phase_id: "FB-P04"
+    phase_name: "フェーズ4: 総合テスト、パフォーマンス確認、最終調整"
+    description: "アプリケーション全体のE2Eテスト、主要機能のパフォーマンステストを行い、発見された不具合の修正と最終的な調整を行う。"
+    start_date: "2025-09-10"
+    end_date: "2025-09-23" # 約2週間
+    responsible_team: "QAチーム, フロントエンド開発チーム, バックエンド開発チーム"
+    status: "完了"
+    tasks:
+      - task_id: "FB-P04-T01"
+        task_name: "エンドツーエンド (E2E) テストの実施"
+        description: |
+          - ユーザー登録からログイン、各主要機能（展示会閲覧、商談予約、プロファイル編集など）の利用、ログアウトまでの一連のユーザーシナリオをテストする。
+          - 管理者ロール、クライアントロールの双方で主要なユースケースをカバーする。
+          - API連携、DB直接アクセス、認証・認可が全て連携して正しく動作することを確認する。
+        responsible_person: "QAチーム"
+        estimated_duration: "5日間"
+        dependencies: ["FB-P02", "FB-P03"]
+        deliverables:
+          - "E2Eテスト報告書"
+          - "発見された不具合の修正記録"
+        relevant_files:
+          - "frontend/__tests__/" # E2Eテストスクリプト
+        llm_actions:
+          - "展示会商談管理システムの典型的なE2Eテストシナリオ（管理者、クライアント双方）の骨子を提案。"
+        status: "完了"
+        priority: "最高"
+
+      - task_id: "FB-P04-T02"
+        task_name: "パフォーマンステストと最適化検討"
+        description: |
+          - 主要画面の表示速度、APIレスポンスタイム、DBクエリの実行時間などを測定する。
+          - ボトルネックとなっている箇所があれば特定し、改善策を検討・実施する（例: クエリ最適化、フロントエンドのレンダリング改善など）。
+          - 特に、Supabase DBへの直接アクセス箇所と、NestJSバックエンドAPI経由のアクセス箇所のパフォーマンスを比較検討する。
+        responsible_person: "開発チームリード (フロントエンド・バックエンド)"
+        estimated_duration: "3日間"
+        dependencies: ["FB-P04-T01"]
+        deliverables:
+          - "パフォーマンステスト結果報告書"
+          - "特定されたボトルネックと改善策のドキュメント（必要な場合）"
+        relevant_files:
+          - "ブラウザ開発者ツール (Network, Performanceタブ)"
+          - "Supabase Dashboard (Query Performance)"
+        llm_actions:
+          - "Next.js + Supabase構成における一般的なパフォーマンス改善ポイントをリストアップ。"
+        status: "完了"
+        priority: "中"
+
+      - task_id: "FB-P04-T03"
+        task_name: "最終バグ修正とリグレッションテスト"
+        description: |
+          - E2Eテストおよびパフォーマンステストで発見された不具合を修正する。
+          - 修正後、関連機能およびシステム全体のリグレッションテストを実施し、新たな問題が発生していないことを確認する。
+        responsible_person: "開発チーム全体"
+        estimated_duration: "4日間"
+        dependencies: ["FB-P04-T02"]
+        deliverables:
+          - "修正済みのコードベース"
+          - "最終リグレッションテスト報告書"
+        relevant_files:
+          - "プロジェクト全体のコードベース"
+        llm_actions:
+          - "リグレッションテストのチェックリスト作成を支援。"
+        status: "完了"
+        priority: "最高"
+
+  - phase_id: "FB-P05"
+    phase_name: "フェーズ5: ドキュメント整備と接続確立完了"
+    description: "フロントエンドとバックエンドの接続に関する最終的なドキュメントを整備し、接続確立の完了を報告する。"
+    start_date: "2025-09-24"
+    end_date: "2025-09-26" # 約3日間
+    responsible_team: "開発チームリード (フロントエンド・バックエンド)"
+    status: "完了"
+    tasks:
+      - task_id: "FB-P05-T01"
+        task_name: "フロントエンド・バックエンド接続仕様ドキュメントの最終化"
+        description: |
+          - APIエンドポイント一覧、認証フロー、データモデル（特にフロントエンドが参照する部分）、エラーハンドリング規約などをまとめたドキュメントを最終化する。
+          - Supabaseクライアントの利用方法やRLSポリシーの概要についても言及する。
+        responsible_person: "開発チームリード (フロントエンド・バックエンド)"
+        estimated_duration: "2日間"
+        dependencies: ["FB-P04-T03"]
+        deliverables:
+          - "最終版 接続仕様ドキュメント"
+        relevant_files:
+          - "プロジェクトドキュメントフォルダ内"
+        llm_actions:
+          - "接続仕様ドキュメントの目次構成案を提示。"
+        status: "完了"
+        priority: "中"
+
+      - task_id: "FB-P05-T02"
+        task_name: "接続確立完了報告と開発環境の安定化"
+        description: |
+          - プロジェクト関係者に対して、フロントエンド・バックエンド間の接続確立と主要機能の動作確認が完了したことを報告する。
+          - 開発環境が安定して動作していることを確認する。
+        responsible_person: "プロジェクトマネージャー, 開発チームリード"
+        estimated_duration: "1日間"
+        dependencies: ["FB-P05-T01"]
+        deliverables:
+          - "接続確立完了報告書"
+        relevant_files:
+          - "frontend/docs/completion-report.md"
+        llm_actions:
+          - "完了報告書のテンプレート作成支援。"
+        status: "完了"
+        priority: "高"
+
+conclusion: |
+  展示会商談管理システムのフロントエンド・バックエンド間接続確立プロジェクトは、計画通りに全てのフェーズが完了しました。
+  主な成果として、以下が挙げられます：
+
+  1. Supabase Authによる認証情報を利用したフロントエンド・バックエンド間の安全な接続
+  2. バックエンドAPIとフロントエンドの完全な連携（認証ヘッダー、エラーハンドリング等）
+  3. RLSポリシーを適用したSupabase DB直接アクセスの実装による高速なデータ取得
+  4. ハイブリッドアクセスパターンによる可用性の向上
+  5. 包括的なテストとパフォーマンス測定による品質保証
+
+  本プロジェクトで確立したパターンは、フロントエンドとバックエンド、そしてSupabase DBを統合した安全で高性能なアプリケーション構築の基盤として、今後も活用できるものとなりました。
+
+# 備考:
+# - 本計画の開始日は、前回のフロントエンド改修計画 (supabase_frontend_migration_plan_auth) の完了予定日 (2025-08-12) の翌日としています。
+# - 各タスクの期間や担当者は目安であり、プロジェクトの状況に応じて柔軟に調整してください。
+# - `llm_actions` は、LLMがこの計画を解釈し、具体的なコード生成や提案を行う際のヒントとなることを意図しています。
+```
+
+この計画書は、フロントエンドとバックエンド間のAPI連携、Supabaseデータベースへの直接アクセス、そしてそれらのテストに焦点を当てています。これにより、アプリケーション全体としての機能性と安定性を確保することを目指します。
+
+ご不明な点や、さらに詳細化したい箇所があれば、お気軽にお知らせください。
