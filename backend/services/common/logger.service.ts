@@ -1,122 +1,72 @@
-import { Logger, LogLevel } from '@nestjs/common';
+import { ConsoleLogger, Injectable, LogLevel as NestLogLevel } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Logging } from '@google-cloud/logging';
+// import { Logging } from '@google-cloud/logging'; // GCP Logging not used
 
-export class LoggerService {
-  private readonly logger = new Logger(LoggerService.name);
-  private readonly cloudLogging: Logging;
-  private readonly logLevel: LogLevel;
+@Injectable()
+export class LoggerService extends ConsoleLogger {
+  // private readonly cloudLogging: Logging; // GCP Logging not used
 
   constructor(private readonly configService: ConfigService) {
-    this.cloudLogging = new Logging({
-      projectId: this.configService.get('GCP_PROJECT_ID'),
-      keyFilename: this.configService.get('GCP_KEY_FILE'),
-    });
+    super(LoggerService.name); // Set context for ConsoleLogger
 
-    this.logLevel = this.configService.get('LOG_LEVEL', 'info');
+    // Determine log levels based on config
+    const configuredLogLevel = this.configService.get<string>('LOG_LEVEL', 'info').toLowerCase();
+    const availableLogLevels: NestLogLevel[] = ['error', 'warn', 'log', 'debug', 'verbose'];
+    let activeLogLevels: NestLogLevel[] = availableLogLevels;
+
+    switch (configuredLogLevel) {
+      case 'error':
+        activeLogLevels = ['error'];
+        break;
+      case 'warn':
+        activeLogLevels = ['error', 'warn'];
+        break;
+      case 'log': // NestJS 'log' corresponds to 'info' in many systems
+      case 'info':
+        activeLogLevels = ['error', 'warn', 'log'];
+        break;
+      case 'debug':
+        activeLogLevels = ['error', 'warn', 'log', 'debug'];
+        break;
+      case 'verbose':
+        activeLogLevels = ['error', 'warn', 'log', 'debug', 'verbose'];
+        break;
+      default:
+        activeLogLevels = ['error', 'warn', 'log']; // Default to info level if unknown
+        break;
+    }
+    this.setLogLevels(activeLogLevels);
+
+    // GCP Logging specific initialization removed
+    // this.cloudLogging = new Logging({
+    //   projectId: this.configService.get('GCP_PROJECT_ID'),
+    //   keyFilename: this.configService.get('GCP_KEY_FILE'),
+    // });
   }
 
-  private formatMessage(message: string, context?: Record<string, any>): string {
-    const timestamp = new Date().toISOString();
-    const contextStr = context ? JSON.stringify(context) : '';
-    return `[${timestamp}] ${message} ${contextStr}`;
-  }
+  // Standard log methods (log, error, warn, debug, verbose) are inherited from ConsoleLogger
+  // Custom formatting or additional logic can be added by overriding these methods if needed.
 
-  private shouldLog(level: LogLevel): boolean {
-    const levels: LogLevel[] = ['error', 'warn', 'info', 'debug', 'verbose'];
-    return levels.indexOf(level) <= levels.indexOf(this.logLevel);
-  }
+  // Example of overriding to add custom prefix, though ConsoleLogger already has context
+  // log(message: any, context?: string) {
+  //   super.log(message, context || this.context);
+  // }
 
-  async log(message: string, context?: Record<string, any>): Promise<void> {
-    if (!this.shouldLog('info')) return;
+  // error(message: any, trace?: string, context?: string) {
+  //   super.error(message, trace, context || this.context);
+  // }
 
-    const formattedMessage = this.formatMessage(message, context);
-    this.logger.log(formattedMessage);
+  // warn(message: any, context?: string) {
+  //   super.warn(message, context || this.context);
+  // }
 
-    const log = this.cloudLogging.log('app-logs');
-    const metadata = {
-      severity: 'INFO',
-      resource: {
-        type: 'cloud_run_revision',
-        labels: {
-          service_name: this.configService.get('SERVICE_NAME'),
-          revision_name: this.configService.get('REVISION_NAME'),
-        },
-      },
-    };
+  // debug(message: any, context?: string) {
+  //   super.debug(message, context || this.context);
+  // }
 
-    await log.write(log.entry(metadata, { message: formattedMessage, ...context }));
-  }
+  // verbose(message: any, context?: string) {
+  //   super.verbose(message, context || this.context);
+  // }
 
-  async error(message: string, error?: Error, context?: Record<string, any>): Promise<void> {
-    if (!this.shouldLog('error')) return;
-
-    const errorContext = {
-      ...context,
-      error: error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      } : undefined,
-    };
-
-    const formattedMessage = this.formatMessage(message, errorContext);
-    this.logger.error(formattedMessage);
-
-    const log = this.cloudLogging.log('app-errors');
-    const metadata = {
-      severity: 'ERROR',
-      resource: {
-        type: 'cloud_run_revision',
-        labels: {
-          service_name: this.configService.get('SERVICE_NAME'),
-          revision_name: this.configService.get('REVISION_NAME'),
-        },
-      },
-    };
-
-    await log.write(log.entry(metadata, { message: formattedMessage, ...errorContext }));
-  }
-
-  async warn(message: string, context?: Record<string, any>): Promise<void> {
-    if (!this.shouldLog('warn')) return;
-
-    const formattedMessage = this.formatMessage(message, context);
-    this.logger.warn(formattedMessage);
-
-    const log = this.cloudLogging.log('app-warnings');
-    const metadata = {
-      severity: 'WARNING',
-      resource: {
-        type: 'cloud_run_revision',
-        labels: {
-          service_name: this.configService.get('SERVICE_NAME'),
-          revision_name: this.configService.get('REVISION_NAME'),
-        },
-      },
-    };
-
-    await log.write(log.entry(metadata, { message: formattedMessage, ...context }));
-  }
-
-  async debug(message: string, context?: Record<string, any>): Promise<void> {
-    if (!this.shouldLog('debug')) return;
-
-    const formattedMessage = this.formatMessage(message, context);
-    this.logger.debug(formattedMessage);
-
-    const log = this.cloudLogging.log('app-debug');
-    const metadata = {
-      severity: 'DEBUG',
-      resource: {
-        type: 'cloud_run_revision',
-        labels: {
-          service_name: this.configService.get('SERVICE_NAME'),
-          revision_name: this.configService.get('REVISION_NAME'),
-        },
-      },
-    };
-
-    await log.write(log.entry(metadata, { message: formattedMessage, ...context }));
-  }
+  // formatMessage and shouldLog are not directly needed as ConsoleLogger handles levels and formatting
 }

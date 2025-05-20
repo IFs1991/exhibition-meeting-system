@@ -101,7 +101,19 @@ export async function getMyProfile(): Promise<Profile | null> {
     .eq('id', session.user.id)
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Error in getMyProfile (raw):', error);
+    if (typeof error === 'object' && error !== null) {
+      console.error('Error in getMyProfile (details):', {
+        message: (error as any).message,
+        code: (error as any).code,
+        details: (error as any).details,
+        hint: (error as any).hint,
+        fullError: JSON.stringify(error, null, 2)
+      });
+    }
+    throw error;
+  }
   return data as Profile
 }
 

@@ -6,11 +6,13 @@ import { BaseRepository } from '../../../shared/repositories/base.repository';
 
 @Injectable()
 export class UserRepository extends BaseRepository<User> {
+  protected readonly entityName: string = 'User';
+
   constructor(
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private readonly userRepositoryInstance: Repository<User>,
   ) {
-    super(userRepository);
+    super(userRepositoryInstance.target, userRepositoryInstance.manager, userRepositoryInstance.queryRunner);
   }
 
   /**
@@ -19,7 +21,7 @@ export class UserRepository extends BaseRepository<User> {
    * @returns 見つかったユーザー、存在しない場合はnull
    */
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
+    return this.userRepositoryInstance.findOne({ where: { email } });
   }
 
   /**
@@ -28,7 +30,7 @@ export class UserRepository extends BaseRepository<User> {
    * @returns ユーザーの配列
    */
   async findByRole(role: UserRole): Promise<User[]> {
-    return this.userRepository.find({ where: { role } });
+    return this.userRepositoryInstance.find({ where: { role } });
   }
 
   /**
@@ -36,7 +38,7 @@ export class UserRepository extends BaseRepository<User> {
    * @param id ユーザーID
    */
   async updateLastLogin(id: string): Promise<void> {
-    await this.userRepository.update(id, {
+    await this.userRepositoryInstance.update(id, {
       lastLoginAt: new Date(),
     });
   }

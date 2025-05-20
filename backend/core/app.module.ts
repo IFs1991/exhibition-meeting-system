@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserModule } from './modules/user/user.module';
-import { ReceiptModule } from './modules/receipt/receipt.module';
-import { AiModule } from './modules/ai/ai.module';
-import { FeedbackModule } from './modules/feedback/feedback.module';
-import { StatsModule } from './modules/stats/stats.module';
-import { ClientModule } from './modules/client/client.module';
-import { MeetingModule } from '../modules/meeting/meeting.module'; // Corrected path
-import { LoggerService } from './services/common/logger.service';
-import { ErrorHandlerService } from './services/common/error-handler.service';
+import { UserModule } from '../modules/user/user.module';
+import { ReceiptModule } from '../modules/receipt/receipt.module';
+import { AiModule } from '../modules/ai/ai.module';
+// import { FeedbackModule } from '../modules/feedback/feedback.module'; // File does not exist
+import { StatsModule } from '../modules/stats/stats.module';
+import { ClientModule } from '../modules/client/client.module';
+import { MeetingModule } from '../modules/meeting/meeting.module';
+import { LoggerService } from '../services/common/logger.service';
+// import { ErrorHandlerService } from '../services/common/error-handler.service'; // File does not exist
 
 @Module({
   imports: [
@@ -34,23 +34,24 @@ import { ErrorHandlerService } from './services/common/error-handler.service';
     UserModule,
     ReceiptModule,
     AiModule,
-    FeedbackModule,
+    // FeedbackModule, // Commented out as file does not exist
     StatsModule,
     ClientModule,
     MeetingModule
   ],
   providers: [
     LoggerService,
-    ErrorHandlerService,
+    // ErrorHandlerService, // Commented out as file does not exist
     {
       provide: 'APP_INTERCEPTOR',
       useClass: LoggerService
     },
-    {
-      provide: 'APP_FILTER',
-      useClass: ErrorHandlerService
-    }
+    // {
+    //   provide: 'APP_FILTER',
+    //   useClass: ErrorHandlerService // Commented out
+    // }
   ],
-  exports: [LoggerService, ErrorHandlerService]
+  // exports: [LoggerService, ErrorHandlerService] // Commented out ErrorHandlerService
+  exports: [LoggerService]
 })
 export class AppModule {}

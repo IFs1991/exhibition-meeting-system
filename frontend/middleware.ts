@@ -68,9 +68,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // 認証済みユーザーがログインページにアクセスした場合
-  if (session && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
+  // if (session && request.nextUrl.pathname === '/login') {
+  //   return NextResponse.redirect(new URL('/dashboard', request.url))
+  // }
 
   return response
 }

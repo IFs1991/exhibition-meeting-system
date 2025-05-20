@@ -23,7 +23,12 @@ export abstract class BaseCrudService<T, CreateDto, UpdateDto, ResponseDto> {
    */
   async create(createDto: CreateDto): Promise<ResponseDto> {
     const entity = this.repository.create(createDto as any);
-    const savedEntity = await this.repository.save(entity);
+    const savedResult = await this.repository.save(entity);
+    // Ensure savedResult is not an array before passing to mapToDto
+    const savedEntity = Array.isArray(savedResult) ? savedResult[0] : savedResult;
+    if (!savedEntity) {
+        throw new Error('Failed to save entity or saved entity is unexpectedly empty.');
+    }
     return this.mapToDto(savedEntity);
   }
 

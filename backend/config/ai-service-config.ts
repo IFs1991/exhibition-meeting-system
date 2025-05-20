@@ -46,7 +46,7 @@ export const defaultConfig: AIServiceConfig = {
   retryDelayMs: 1000
 };
 
-import { promptTemplates } from './prompt-templates';
+// import { promptTemplates } from './prompt-templates'; // Commenting out missing import
 
 export class AIServiceConfigManager {
   private config: AIServiceConfig;
@@ -74,9 +74,9 @@ export class AIServiceConfigManager {
     };
   }
 
-  public getPromptTemplate(templateKey: keyof typeof promptTemplates): string {
-    return promptTemplates[templateKey];
-  }
+  // public getPromptTemplate(templateKey: keyof typeof promptTemplates): string {
+  //   return promptTemplates[templateKey];
+  // }
 
   public updateConfig(newConfig: Partial<AIServiceConfig>): void {
     this.config = {
@@ -101,5 +101,15 @@ export class AIServiceConfigManager {
     }
 
     return true;
+  }
+
+  getSystemPrompt(templateName: string): string | undefined {
+    // return promptTemplates[templateName]?.system;
+    return undefined; // Temporarily return undefined
+  }
+
+  getUserPrompt(templateName: string): string | undefined {
+    // return promptTemplates[templateName]?.user;
+    return undefined; // Temporarily return undefined
   }
 }

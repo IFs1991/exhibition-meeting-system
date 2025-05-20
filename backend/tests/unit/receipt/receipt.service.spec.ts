@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ReceiptService } from '../../backend/modules/receipt/receipt.service';
-import { ReceiptRepository } from '../../backend/modules/receipt/repositories/receipt.repository';
-import { TagService } from '../../backend/modules/receipt/tag/tag.service';
-import { VectorSearchService } from '../../backend/services/vector/vector-search.service';
-import { CreateReceiptDto, SearchReceiptDto } from '../../backend/modules/receipt/dto/receipt.dto';
+// import { ReceiptService } from '../../backend/modules/receipt/receipt.service';
+// import { ReceiptRepository } from '../../backend/modules/receipt/repositories/receipt.repository';
+// import { TagService } from '../../backend/modules/receipt/tag/tag.service';
+// import { VectorSearchService } from '../../backend/services/vector/vector-search.service';
+// import { CreateReceiptDto, SearchReceiptDto } from '../../backend/modules/receipt/dto/receipt.dto';
+import { NotFoundException } from '@nestjs/common';
 
 describe('ReceiptService', () => {
   let service: ReceiptService;

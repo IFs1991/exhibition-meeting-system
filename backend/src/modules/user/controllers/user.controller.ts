@@ -10,6 +10,7 @@ import {
   Query,
   ValidationPipe,
   ParseUUIDPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -37,16 +38,19 @@ import {
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Post()
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: '新規ユーザー作成 (管理者専用)' })
-  @ApiResponse({ status: 201, description: 'ユーザーが正常に作成されました' })
-  @ApiResponse({ status: 400, description: 'リクエストが無効です' })
-  @ApiResponse({ status: 401, description: '認証エラー' })
-  @ApiResponse({ status: 403, description: '権限エラー' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.createUser(createUserDto);
-  }
+  // @Post()
+  // @Roles(UserRole.ADMIN)
+  // @ApiOperation({ summary: '新規ユーザー作成 (管理者専用)' })
+  // @ApiResponse({ status: 201, description: 'ユーザーが正常に作成されました' })
+  // @ApiResponse({ status: 400, description: 'リクエストが無効です' })
+  // @ApiResponse({ status: 401, description: '認証エラー' })
+  // @ApiResponse({ status: 403, description: '権限エラー' })
+  // async create(@Body() createUserDto: CreateUserDto) {
+  //   // return this.userService.createUser(createUserDto); // createUserは存在しない
+  //   // Supabaseでユーザー作成後、そのIDを使ってProfileを作成する想定
+  //   // このAPIの役割を再検討する必要あり
+  //   throw new Error('Not implemented yet. Profile creation should be linked to Supabase user creation.');
+  // }
 
   @Get()
   @Roles(UserRole.ADMIN)
@@ -66,9 +70,12 @@ export class UserController {
   @ApiResponse({ status: 404, description: 'ユーザーが見つかりません' })
   @ApiResponse({ status: 401, description: '認証エラー' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    const user = await this.userService.findOneByIdOrFail(id);
-    const { passwordHash, ...result } = user;
-    return result;
+    const profile = await this.userService.findProfileById(id);
+    if (!profile) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    // const { passwordHash, ...result } = user; // passwordHash は Profile にない
+    return profile; // Profileオブジェクトをそのまま返す
   }
 
   @Put(':id')
@@ -83,39 +90,43 @@ export class UserController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return this.userService.updateUser(id, updateUserDto);
+    return this.userService.updateProfile(id, updateUserDto);
   }
 
-  @Delete(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'ユーザー削除 (管理者専用)' })
-  @ApiParam({ name: 'id', description: 'ユーザーID' })
-  @ApiResponse({ status: 200, description: 'ユーザーを削除しました' })
-  @ApiResponse({ status: 404, description: 'ユーザーが見つかりません' })
-  @ApiResponse({ status: 401, description: '認証エラー' })
-  @ApiResponse({ status: 403, description: '権限エラー' })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    await this.userService.softRemove(id);
-    return { message: 'ユーザーが正常に削除されました' };
-  }
+  // @Delete(':id')
+  // @Roles(UserRole.ADMIN)
+  // @ApiOperation({ summary: 'ユーザー削除 (管理者専用)' })
+  // @ApiParam({ name: 'id', description: 'ユーザーID' })
+  // @ApiResponse({ status: 200, description: 'ユーザーを削除しました' })
+  // @ApiResponse({ status: 404, description: 'ユーザーが見つかりません' })
+  // @ApiResponse({ status: 401, description: '認証エラー' })
+  // @ApiResponse({ status: 403, description: '権限エラー' })
+  // async remove(@Param('id', ParseUUIDPipe) id: string) {
+  //   // await this.userService.softRemove(id); // softRemoveは存在しない
+  //   // Supabaseユーザーの削除/無効化処理が必要
+  //   // throw new Error('Not implemented yet. User deletion needs to interact with Supabase.');
+  //   return { message: 'User deletion not implemented yet.' };
+  // }
 
-  @Post(':id/change-password')
-  @Roles(UserRole.ADMIN, UserRole.EXHIBITOR, UserRole.CLIENT, UserRole.USER)
-  @ApiOperation({ summary: 'パスワード変更' })
-  @ApiParam({ name: 'id', description: 'ユーザーID' })
-  @ApiResponse({ status: 200, description: 'パスワードを変更しました' })
-  @ApiResponse({ status: 400, description: '現在のパスワードが正しくありません' })
-  @ApiResponse({ status: 404, description: 'ユーザーが見つかりません' })
-  @ApiResponse({ status: 401, description: '認証エラー' })
-  async changePassword(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() changePasswordDto: ChangePasswordDto,
-  ) {
-    await this.userService.changePassword(
-      id,
-      changePasswordDto.currentPassword,
-      changePasswordDto.newPassword,
-    );
-    return { message: 'パスワードが正常に変更されました' };
-  }
+  // @Post(':id/change-password')
+  // @Roles(UserRole.ADMIN, UserRole.EXHIBITOR, UserRole.CLIENT, UserRole.USER)
+  // @ApiOperation({ summary: 'パスワード変更' })
+  // @ApiParam({ name: 'id', description: 'ユーザーID' })
+  // @ApiResponse({ status: 200, description: 'パスワードを変更しました' })
+  // @ApiResponse({ status: 400, description: '現在のパスワードが正しくありません' })
+  // @ApiResponse({ status: 404, description: 'ユーザーが見つかりません' })
+  // @ApiResponse({ status: 401, description: '認証エラー' })
+  // async changePassword(
+  //   @Param('id', ParseUUIDPipe) id: string,
+  //   @Body() changePasswordDto: ChangePasswordDto,
+  // ) {
+  //   // await this.userService.changePassword(
+  //   //   id,
+  //   //   changePasswordDto.currentPassword,
+  //   //   changePasswordDto.newPassword,
+  //   // ); // changePasswordは存在しない
+  //   // パスワード変更はSupabase側で行う
+  //   // throw new Error('Not implemented yet. Password change should be handled by Supabase.');
+  //   return { message: 'Password change not implemented yet.' };
+  // }
 }

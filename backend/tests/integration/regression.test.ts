@@ -3,11 +3,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { JwtService } from '@nestjs/jwt';
-import { UnifiedConfigService } from '../../config/unified-config.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Profile } from '../../entities/profile.entity';
-import { UserRole } from '../../entities/user.entity';
-import { AppModule } from '../../app.module';
+// import { UnifiedConfigService } from '../../config/unified-config.service';
+import { ConfigModule } from '@nestjs/config';
+// import { Profile } from '../../entities/profile.entity';
+// import { UserRole } from '../../entities/user.entity';
+import { AppModule } from '../../src/app.module';
 
 // Supabase JWTをモックするための関数
 const generateMockSupabaseJwt = (userId: string, email: string, role?: string) => {
@@ -26,7 +26,7 @@ const generateMockSupabaseJwt = (userId: string, email: string, role?: string) =
 describe('認証基盤変更後の回帰テスト', () => {
   let app: INestApplication;
   let jwtService: JwtService;
-  let configService: UnifiedConfigService;
+  // let configService: UnifiedConfigService;
   let profileRepository: any;
 
   // モックトークン
@@ -59,11 +59,11 @@ describe('認証基盤変更後の回帰テスト', () => {
 
     // JWTサービスとConfigサービスのモック
     jwtService = new JwtService();
-    configService = {
-      supabaseJwtSecret: 'mock_jwt_secret',
-      corsOrigins: ['http://localhost:3000'],
-      port: 3000
-    } as any;
+    // configService = {
+    //   supabaseJwtSecret: 'mock_jwt_secret',
+    //   corsOrigins: ['http://localhost:3000'],
+    //   port: 3000
+    // } as any;
 
     // モジュール設定
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -71,8 +71,8 @@ describe('認証基盤変更後の回帰テスト', () => {
     })
       .overrideProvider(JwtService)
       .useValue(jwtService)
-      .overrideProvider(UnifiedConfigService)
-      .useValue(configService)
+      // .overrideProvider(UnifiedConfigService)
+      // .useValue(configService)
       .overrideProvider(getRepositoryToken(Profile))
       .useValue(profileRepository)
       .compile();

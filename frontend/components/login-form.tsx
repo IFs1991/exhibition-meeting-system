@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -24,11 +25,20 @@ export function LoginForm() {
 
     try {
       await login(email, password);
+
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
       toast({
         title: "ログインしました",
         description: "ようこそ！",
       });
-      router.push("/dashboard");
+
+      if (session && session.user?.user_metadata?.role === 'admin') {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (error) {
       toast({
         title: "ログインエラー",

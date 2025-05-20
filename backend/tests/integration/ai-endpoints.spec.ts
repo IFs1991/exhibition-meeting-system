@@ -2,8 +2,9 @@ import * as request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../src/app.module';
-import { JwtAuthGuard } from '../../modules/user/guards/auth.guard';
-import { RolesGuard } from '../../modules/user/guards/roles.guard';
+// import { JwtAuthGuard } from '../../modules/user/guards/auth.guard';
+// import { RolesGuard } from '../../modules/user/guards/roles.guard';
+import { AIServiceConfig } from '../../config/ai-service-config';
 
 describe('AI Endpoints (e2e)', () => {
   let app: INestApplication;
@@ -14,14 +15,14 @@ describe('AI Endpoints (e2e)', () => {
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     })
-    .overrideGuard(JwtAuthGuard) // 認証をバイパス
-    .useValue({
-      canActivate: () => true,
-    })
-    .overrideGuard(RolesGuard) // 権限チェックをバイパス
-    .useValue({
-      canActivate: () => true,
-    })
+    // .overrideGuard(JwtAuthGuard) // 認証をバイパス
+    // .useValue({
+    //   canActivate: () => true,
+    // })
+    // .overrideGuard(RolesGuard) // 権限チェックをバイパス
+    // .useValue({
+    //   canActivate: () => true,
+    // })
     .compile();
 
     app = moduleFixture.createNestApplication();

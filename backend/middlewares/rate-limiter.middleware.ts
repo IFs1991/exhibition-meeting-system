@@ -1,7 +1,15 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { ConfigService } from '@nestjs/config';
+import { AppConfig } from '../config/app-config';
 import { Redis } from 'ioredis';
+
+// Define a type for the request object that includes the optional user property
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id?: string;
+    // Add other user properties if available/needed by the application
+  };
+}
 
 @Injectable()
 export class RateLimiterMiddleware implements NestMiddleware {
@@ -11,12 +19,12 @@ export class RateLimiterMiddleware implements NestMiddleware {
   private readonly maxRequestsPerUser: number;
   private readonly endpointLimits: Map<string, number>;
 
-  constructor(private configService: ConfigService) {
-    this.redis = new Redis(this.configService.get('REDIS_URL'));
-    this.windowMs = this.configService.get('RATE_LIMIT_WINDOW_MS', 60000);
-    this.maxRequestsPerIp = this.configService.get('RATE_LIMIT_MAX_IP', 100);
-    this.maxRequestsPerUser = this.configService.get('RATE_LIMIT_MAX_USER', 1000);
-    
+  constructor(private appConfig: AppConfig) {
+    this.redis = new Redis();
+    this.windowMs = this.appConfig.RATE_LIMIT_WINDOW_MS;
+    this.maxRequestsPerIp = this.appConfig.RATE_LIMIT_MAX_REQUESTS;
+    this.maxRequestsPerUser = this.appConfig.RATE_LIMIT_MAX_REQUESTS;
+
     this.endpointLimits = new Map([
       ['/api/ai/generate', 10],
       ['/api/receipt/search', 50],
@@ -24,7 +32,7 @@ export class RateLimiterMiddleware implements NestMiddleware {
     ]);
   }
 
-  async use(req: Request, res: Response, next: NextFunction) {
+  async use(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     const ip = req.ip;
     const userId = req.user?.id || 'anonymous';
     const endpoint = req.path;

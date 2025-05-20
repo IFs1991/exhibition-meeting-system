@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 // 実際のGoogle Cloud Vertex AIライブラリをインポートします
 // import { VertexAI } from '@google-cloud/vertexai';
-import { AiServiceConfigService } from '../../config/ai-service-config';
+import { AIServiceConfigManager } from '../../config/ai-service-config';
 
 // 開発/テスト用のモッククラス (実際の開発では上記のライブラリを使用)
 // 実際のライブラリのインターフェースに合わせて適宜修正してください
@@ -52,26 +52,29 @@ export class VertexAiService {
   private embeddingModel: MockEmbeddingModel; // 実際のEmbeddingModelインスタンスに置き換える
 
   constructor(
-    private readonly configService: AiServiceConfigService,
+    private readonly configManager: AIServiceConfigManager,
   ) {
-    const vertexAiConfig = this.configService.getVertexAiConfig(); // 設定サービスからVertex AI設定を取得
+    const geminiConfig = this.configManager.getGeminiConfig();
+    const embeddingConfig = this.configManager.getEmbeddingConfig();
 
-    // 実際のVertex AIクライアントの初期化
-    // this.vertexAI = new VertexAI({
-    //   project: vertexAiConfig.projectId,
-    //   location: vertexAiConfig.location,
-    //   // 認証情報は環境変数やIAMロールで自動的に処理されることが多い
-    //   // 明示的な認証情報が必要な場合は、ここで設定
-    //   // authClient: ...,
-    // });
+    const projectId = process.env.GCP_PROJECT_ID; // 環境変数名を仮定
+    const location = process.env.GCP_LOCATION;   // 環境変数名を仮定
+
+    if (!projectId || !location) {
+      throw new Error('GCP_PROJECT_ID and GCP_LOCATION must be set in environment variables');
+    }
 
     // モッククライアントの初期化 (開発/テスト用)
-    this.vertexAI = new MockVertexAI(vertexAiConfig);
+    this.vertexAI = new MockVertexAI({
+      projectId,
+      location,
+      // geminiConfig や embeddingConfig の内容をMockVertexAIが期待する形に合わせる必要があれば追加
+    });
 
 
     // モデルの初期化
-    this.generativeModel = this.vertexAI.getGenerativeModel({ model: vertexAiConfig.generativeModel });
-    this.embeddingModel = this.vertexAI.getEmbeddingModel({ model: vertexAiConfig.embeddingModel });
+    this.generativeModel = this.vertexAI.getGenerativeModel({ model: geminiConfig.modelName });
+    this.embeddingModel = this.vertexAI.getEmbeddingModel({ model: embeddingConfig.modelName });
   }
 
   /**
